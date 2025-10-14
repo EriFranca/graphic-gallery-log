@@ -40,50 +40,28 @@ serve(async (req) => {
         const html = await response.text();
         console.log('HTML received, length:', html.length);
         
-        // Múltiplos padrões para encontrar títulos e capas
-        const patterns = [
-          {
-            title: /<h3[^>]*class="[^"]*titulo[^"]*"[^>]*>.*?<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gis,
-            cover: /<img[^>]+class="[^"]*capa[^"]*"[^>]+src="([^"]+)"/gi
-          },
-          {
-            title: /<a[^>]+class="[^"]*titulo[^"]*"[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gis,
-            cover: /<img[^>]+src="([^"]+)"[^>]*alt="[^"]*capa/gi
-          },
-          {
-            title: /<div[^>]*class="[^"]*result[^"]*"[^>]*>.*?<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gis,
-            cover: /<img[^>]+src="([^"]+)"[^>]*class="[^"]*thumb/gi
-          }
-        ];
+        // Padrão para extrair títulos da tabela
+        const titlePattern = /<td>\s*<a href="([^"]+)"[^>]*>([^<]+)<\/a><\/td>/gi;
+        const titles = [];
+        
+        let titleMatch;
+        while ((titleMatch = titlePattern.exec(html)) !== null) {
+          titles.push({
+            link: titleMatch[1],
+            title: titleMatch[2].trim()
+          });
+        }
 
-        for (const pattern of patterns) {
-          const titles = [];
-          const covers = [];
-          
-          let titleMatch;
-          while ((titleMatch = pattern.title.exec(html)) !== null) {
-            titles.push({
-              link: titleMatch[1],
-              title: titleMatch[2].trim()
+        console.log('Found titles:', titles.length);
+
+        if (titles.length > 0) {
+          // Limitar a 20 resultados
+          for (let i = 0; i < Math.min(titles.length, 20); i++) {
+            results.push({
+              title: titles[i].title,
+              link: titles[i].link.startsWith('http') ? titles[i].link : `http://www.guiadosquadrinhos.com${titles[i].link}`,
+              coverUrl: null // O site não mostra capas na lista de títulos
             });
-          }
-
-          let coverMatch;
-          while ((coverMatch = pattern.cover.exec(html)) !== null) {
-            covers.push(coverMatch[1]);
-          }
-
-          console.log('Pattern found titles:', titles.length, 'covers:', covers.length);
-
-          if (titles.length > 0) {
-            for (let i = 0; i < Math.min(titles.length, Math.max(covers.length, 1)); i++) {
-              results.push({
-                title: titles[i].title,
-                link: titles[i].link.startsWith('http') ? titles[i].link : `http://www.guiadosquadrinhos.com${titles[i].link}`,
-                coverUrl: covers[i] ? (covers[i].startsWith('http') ? covers[i] : `http://www.guiadosquadrinhos.com${covers[i]}`) : null
-              });
-            }
-            break;
           }
         }
 
