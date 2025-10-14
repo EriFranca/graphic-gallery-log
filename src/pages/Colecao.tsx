@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Library, BookOpen, ChevronDown } from "lucide-react";
+import { Plus, Search, Library, BookOpen, Download } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Accordion,
   AccordionContent,
@@ -82,6 +83,8 @@ const Colecao = () => {
   const [newCollectionPublisher, setNewCollectionPublisher] = useState("");
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [newIssueNumber, setNewIssueNumber] = useState("");
+  const [scrapingQuery, setScrapingQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const toggleIssueOwned = (collectionId: string, issueId: string) => {
     setCollections(collections.map(collection => {
@@ -143,6 +146,39 @@ const Colecao = () => {
     toast.success("Edição adicionada!");
   };
 
+  const scrapeGuiaQuadrinhos = async () => {
+    if (!scrapingQuery.trim()) {
+      toast.error("Digite um título para buscar!");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-guia-quadrinhos', {
+        body: { searchQuery: scrapingQuery }
+      });
+
+      if (error) throw error;
+
+      if (data.success && data.data.length > 0) {
+        toast.success(`${data.data.length} resultados encontrados no Guia dos Quadrinhos!`);
+        console.log('Resultados:', data.data);
+        
+        // Aqui você pode processar os resultados
+        // Por exemplo, adicionar automaticamente como uma nova coleção
+        const firstResult = data.data[0];
+        toast.info(`Título encontrado: ${firstResult.title}`);
+      } else {
+        toast.warning("Nenhum resultado encontrado");
+      }
+    } catch (error) {
+      console.error('Erro ao fazer scraping:', error);
+      toast.error("Erro ao buscar no Guia dos Quadrinhos");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const filteredCollections = collections.filter(collection =>
     collection.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     collection.publisher.toLowerCase().includes(searchTerm.toLowerCase())
@@ -172,6 +208,33 @@ const Colecao = () => {
         </div>
 
         <div className="max-w-6xl mx-auto space-y-8">
+          <Card className="shadow-comic border-2 bg-gradient-to-r from-primary/10 to-secondary/10">
+            <CardHeader>
+              <CardTitle className="text-xl font-black text-foreground flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                Buscar no Guia dos Quadrinhos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-3">
+                <Input
+                  placeholder="Digite o título da coleção..."
+                  value={scrapingQuery}
+                  onChange={(e) => setScrapingQuery(e.target.value)}
+                  className="border-2 flex-1"
+                  onKeyDown={(e) => e.key === 'Enter' && scrapeGuiaQuadrinhos()}
+                />
+                <Button 
+                  onClick={scrapeGuiaQuadrinhos}
+                  disabled={isLoading}
+                  className="shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5"
+                >
+                  {isLoading ? "Buscando..." : "Buscar"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid gap-4 md:grid-cols-2">
             <Card className="shadow-comic border-2">
               <CardHeader>
