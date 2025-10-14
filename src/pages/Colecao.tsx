@@ -146,7 +146,7 @@ const Colecao = () => {
     toast.success("Edição adicionada!");
   };
 
-  const scrapeGuiaQuadrinhos = async () => {
+  const searchComicVine = async () => {
     if (!scrapingQuery.trim()) {
       toast.error("Digite um título para buscar!");
       return;
@@ -154,26 +154,25 @@ const Colecao = () => {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('scrape-guia-quadrinhos', {
+      const { data, error } = await supabase.functions.invoke('search-comic-vine', {
         body: { searchQuery: scrapingQuery }
       });
 
       if (error) throw error;
 
       if (data.success && data.data.length > 0) {
-        toast.success(`${data.data.length} resultados encontrados no Guia dos Quadrinhos!`);
-        console.log('Resultados:', data.data);
+        toast.success(`${data.data.length} resultados encontrados no Comic Vine!`);
+        console.log('Resultados Comic Vine:', data.data);
         
-        // Aqui você pode processar os resultados
-        // Por exemplo, adicionar automaticamente como uma nova coleção
+        // Mostra informações do primeiro resultado
         const firstResult = data.data[0];
-        toast.info(`Título encontrado: ${firstResult.title}`);
+        toast.info(`${firstResult.title} (${firstResult.publisher}) - ${firstResult.issueCount} edições`);
       } else {
         toast.warning("Nenhum resultado encontrado");
       }
     } catch (error) {
-      console.error('Erro ao fazer scraping:', error);
-      toast.error("Erro ao buscar no Guia dos Quadrinhos");
+      console.error('Erro ao buscar:', error);
+      toast.error("Erro ao buscar no Comic Vine");
     } finally {
       setIsLoading(false);
     }
@@ -212,7 +211,7 @@ const Colecao = () => {
             <CardHeader>
               <CardTitle className="text-xl font-black text-foreground flex items-center gap-2">
                 <Download className="h-5 w-5" />
-                Buscar no Guia dos Quadrinhos
+                Buscar no Comic Vine
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -222,10 +221,10 @@ const Colecao = () => {
                   value={scrapingQuery}
                   onChange={(e) => setScrapingQuery(e.target.value)}
                   className="border-2 flex-1"
-                  onKeyDown={(e) => e.key === 'Enter' && scrapeGuiaQuadrinhos()}
+                  onKeyDown={(e) => e.key === 'Enter' && searchComicVine()}
                 />
                 <Button 
-                  onClick={scrapeGuiaQuadrinhos}
+                  onClick={searchComicVine}
                   disabled={isLoading}
                   className="shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5"
                 >
