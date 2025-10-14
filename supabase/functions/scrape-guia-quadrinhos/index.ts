@@ -14,54 +14,89 @@ serve(async (req) => {
     const { searchQuery } = await req.json();
     console.log('Searching for:', searchQuery);
 
-    // Fazendo a busca no Guia dos Quadrinhos
-    const searchUrl = `http://www.guiadosquadrinhos.com/search/title/${encodeURIComponent(searchQuery)}`;
-    console.log('Fetching URL:', searchUrl);
+    // Tentando diferentes URLs de busca
+    const searchUrls = [
+      `http://www.guiadosquadrinhos.com/titulos?q=${encodeURIComponent(searchQuery)}`,
+      `http://www.guiadosquadrinhos.com/busca?query=${encodeURIComponent(searchQuery)}`,
+      `http://www.guiadosquadrinhos.com/pesquisar?titulo=${encodeURIComponent(searchQuery)}`
+    ];
 
-    const response = await fetch(searchUrl);
-    const html = await response.text();
-    
-    console.log('HTML received, parsing...');
-
-    // Extraindo dados usando regex (parsing básico do HTML)
     const results = [];
     
-    // Pattern para encontrar os resultados de busca
-    // O site do Guia usa estruturas específicas que precisamos identificar
-    const titlePattern = /<div class="title_search">.*?<a href="([^"]+)"[^>]*>([^<]+)<\/a>/gs;
-    const coverPattern = /<img[^>]+src="([^"]+)"[^>]*class="[^"]*thumb/g;
-    
-    let titleMatch;
-    let coverMatch;
-    const titles = [];
-    const covers = [];
+    for (const searchUrl of searchUrls) {
+      try {
+        console.log('Trying URL:', searchUrl);
+        const response = await fetch(searchUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        
+        if (!response.ok) {
+          console.log(`URL ${searchUrl} returned status ${response.status}`);
+          continue;
+        }
+        
+        const html = await response.text();
+        console.log('HTML received, length:', html.length);
+        
+        // Múltiplos padrões para encontrar títulos e capas
+        const patterns = [
+          {
+            title: /<h3[^>]*class="[^"]*titulo[^"]*"[^>]*>.*?<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gis,
+            cover: /<img[^>]+class="[^"]*capa[^"]*"[^>]+src="([^"]+)"/gi
+          },
+          {
+            title: /<a[^>]+class="[^"]*titulo[^"]*"[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gis,
+            cover: /<img[^>]+src="([^"]+)"[^>]*alt="[^"]*capa/gi
+          },
+          {
+            title: /<div[^>]*class="[^"]*result[^"]*"[^>]*>.*?<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gis,
+            cover: /<img[^>]+src="([^"]+)"[^>]*class="[^"]*thumb/gi
+          }
+        ];
 
-    // Extrair títulos
-    while ((titleMatch = titlePattern.exec(html)) !== null) {
-      titles.push({
-        link: titleMatch[1],
-        title: titleMatch[2].trim()
-      });
+        for (const pattern of patterns) {
+          const titles = [];
+          const covers = [];
+          
+          let titleMatch;
+          while ((titleMatch = pattern.title.exec(html)) !== null) {
+            titles.push({
+              link: titleMatch[1],
+              title: titleMatch[2].trim()
+            });
+          }
+
+          let coverMatch;
+          while ((coverMatch = pattern.cover.exec(html)) !== null) {
+            covers.push(coverMatch[1]);
+          }
+
+          console.log('Pattern found titles:', titles.length, 'covers:', covers.length);
+
+          if (titles.length > 0) {
+            for (let i = 0; i < Math.min(titles.length, Math.max(covers.length, 1)); i++) {
+              results.push({
+                title: titles[i].title,
+                link: titles[i].link.startsWith('http') ? titles[i].link : `http://www.guiadosquadrinhos.com${titles[i].link}`,
+                coverUrl: covers[i] ? (covers[i].startsWith('http') ? covers[i] : `http://www.guiadosquadrinhos.com${covers[i]}`) : null
+              });
+            }
+            break;
+          }
+        }
+
+        if (results.length > 0) {
+          break;
+        }
+      } catch (urlError) {
+        console.log('Error with URL:', searchUrl, urlError);
+        continue;
+      }
     }
 
-    // Extrair capas
-    while ((coverMatch = coverPattern.exec(html)) !== null) {
-      covers.push(coverMatch[1]);
-    }
-
-    console.log('Found titles:', titles.length);
-    console.log('Found covers:', covers.length);
-
-    // Combinar títulos e capas
-    for (let i = 0; i < Math.min(titles.length, covers.length); i++) {
-      results.push({
-        title: titles[i].title,
-        link: `http://www.guiadosquadrinhos.com${titles[i].link}`,
-        coverUrl: covers[i].startsWith('http') ? covers[i] : `http://www.guiadosquadrinhos.com${covers[i]}`
-      });
-    }
-
-    console.log('Returning results:', results.length);
+    console.log('Total results found:', results.length);
 
     return new Response(
       JSON.stringify({ success: true, data: results }),
