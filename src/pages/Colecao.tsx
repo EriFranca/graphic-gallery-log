@@ -19,6 +19,7 @@ interface Issue {
   number: string;
   owned: boolean;
   coverColor: string;
+  coverUrl?: string;
 }
 
 interface Collection {
@@ -26,6 +27,17 @@ interface Collection {
   title: string;
   publisher: string;
   issues: Issue[];
+  coverUrl?: string;
+}
+
+interface ComicVineResult {
+  title: string;
+  publisher: string;
+  year: string;
+  issueCount: number;
+  coverUrl: string;
+  description: string;
+  link: string;
 }
 
 const generateCoverColor = () => {
@@ -85,6 +97,7 @@ const Colecao = () => {
   const [newIssueNumber, setNewIssueNumber] = useState("");
   const [scrapingQuery, setScrapingQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<ComicVineResult[]>([]);
 
   const toggleIssueOwned = (collectionId: string, issueId: string) => {
     setCollections(collections.map(collection => {
@@ -161,21 +174,34 @@ const Colecao = () => {
       if (error) throw error;
 
       if (data.success && data.data.length > 0) {
-        toast.success(`${data.data.length} resultados encontrados no Comic Vine!`);
-        console.log('Resultados Comic Vine:', data.data);
-        
-        // Mostra informações do primeiro resultado
-        const firstResult = data.data[0];
-        toast.info(`${firstResult.title} (${firstResult.publisher}) - ${firstResult.issueCount} edições`);
+        setSearchResults(data.data);
+        toast.success(`${data.data.length} resultados encontrados!`);
       } else {
+        setSearchResults([]);
         toast.warning("Nenhum resultado encontrado");
       }
     } catch (error) {
       console.error('Erro ao buscar:', error);
       toast.error("Erro ao buscar no Comic Vine");
+      setSearchResults([]);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const addCollectionFromComicVine = (result: ComicVineResult) => {
+    const newCollection: Collection = {
+      id: Date.now().toString(),
+      title: result.title,
+      publisher: result.publisher,
+      issues: [],
+      coverUrl: result.coverUrl,
+    };
+    
+    setCollections([...collections, newCollection]);
+    toast.success(`${result.title} adicionado à coleção!`);
+    setSearchResults([]);
+    setScrapingQuery("");
   };
 
   const filteredCollections = collections.filter(collection =>
@@ -214,7 +240,7 @@ const Colecao = () => {
                 Buscar no Comic Vine
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="flex gap-3">
                 <Input
                   placeholder="Digite o título da coleção..."
@@ -231,6 +257,44 @@ const Colecao = () => {
                   {isLoading ? "Buscando..." : "Buscar"}
                 </Button>
               </div>
+
+              {searchResults.length > 0 && (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  <p className="text-sm font-bold text-muted-foreground">
+                    {searchResults.length} resultados encontrados:
+                  </p>
+                  {searchResults.map((result, index) => (
+                    <div
+                      key={index}
+                      className="flex gap-3 p-3 border-2 rounded-lg hover:bg-accent/50 transition-colors"
+                    >
+                      <img
+                        src={result.coverUrl}
+                        alt={result.title}
+                        className="w-16 h-24 object-cover rounded shadow-md"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-foreground truncate">
+                          {result.title}
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          {result.publisher} • {result.year}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {result.issueCount} edições
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => addCollectionFromComicVine(result)}
+                        size="sm"
+                        className="shrink-0"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -369,11 +433,19 @@ const Colecao = () => {
                                 }`}
                               >
                                 <div className="relative">
-                                  <div className={`aspect-[2/3] ${issue.coverColor} rounded-lg shadow-comic hover:shadow-comic-hover flex items-center justify-center`}>
-                                    <span className="text-white text-2xl font-black drop-shadow-lg">
-                                      {issue.number}
-                                    </span>
-                                  </div>
+                                  {issue.coverUrl ? (
+                                    <img
+                                      src={issue.coverUrl}
+                                      alt={issue.number}
+                                      className="aspect-[2/3] w-full object-cover rounded-lg shadow-comic hover:shadow-comic-hover"
+                                    />
+                                  ) : (
+                                    <div className={`aspect-[2/3] ${issue.coverColor} rounded-lg shadow-comic hover:shadow-comic-hover flex items-center justify-center`}>
+                                      <span className="text-white text-2xl font-black drop-shadow-lg">
+                                        {issue.number}
+                                      </span>
+                                    </div>
+                                  )}
                                   <div className="absolute top-2 right-2">
                                     <Checkbox
                                       checked={issue.owned}
