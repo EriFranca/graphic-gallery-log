@@ -11,15 +11,54 @@ serve(async (req) => {
   }
 
   try {
-    const { searchQuery } = await req.json();
-    console.log('Searching Comic Vine for:', searchQuery);
-
+    const { searchQuery, volumeApiUrl } = await req.json();
+    
     const COMIC_VINE_API_KEY = Deno.env.get('COMIC_VINE_API_KEY');
     if (!COMIC_VINE_API_KEY) {
       throw new Error('COMIC_VINE_API_KEY not configured');
     }
 
-    // Comic Vine API search endpoint
+    // If volumeApiUrl is provided, fetch issues for that volume
+    if (volumeApiUrl) {
+      console.log('Fetching issues for volume:', volumeApiUrl);
+      const issuesUrl = `${volumeApiUrl}?api_key=${COMIC_VINE_API_KEY}&format=json&field_list=issues`;
+      
+      const volumeResponse = await fetch(issuesUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      if (!volumeResponse.ok) {
+        throw new Error(`Comic Vine API returned status ${volumeResponse.status}`);
+      }
+
+      const volumeData = await volumeResponse.json();
+      
+      if (volumeData.error !== 'OK') {
+        throw new Error(`Comic Vine API error: ${volumeData.error}`);
+      }
+
+      const issues = volumeData.results.issues.map((issue: any) => ({
+        number: issue.issue_number || 'N/A',
+        name: issue.name || '',
+        coverUrl: issue.image?.medium_url || issue.image?.small_url || null,
+        apiUrl: issue.api_detail_url
+      }));
+
+      return new Response(
+        JSON.stringify({ success: true, data: issues }),
+        { 
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
+    }
+
+    // Otherwise, search for volumes
+    console.log('Searching Comic Vine for:', searchQuery);
     const url = `https://comicvine.gamespot.com/api/search/?api_key=${COMIC_VINE_API_KEY}&query=${encodeURIComponent(searchQuery)}&format=json&resources=volume&limit=20`;
     
     console.log('Calling Comic Vine API');
@@ -48,7 +87,8 @@ serve(async (req) => {
       issueCount: item.count_of_issues || 0,
       coverUrl: item.image?.medium_url || item.image?.small_url || null,
       description: item.deck || item.description || '',
-      link: item.site_detail_url
+      link: item.site_detail_url,
+      apiUrl: item.api_detail_url
     }));
 
     console.log('Processed results:', results.length);
