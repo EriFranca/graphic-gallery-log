@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Library, BookOpen, Download } from "lucide-react";
+import { Plus, Search, Library, BookOpen, Download, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -190,18 +190,33 @@ const Colecao = () => {
   };
 
   const addCollectionFromComicVine = (result: ComicVineResult) => {
+    const issues: Issue[] = [];
+    for (let i = 1; i <= result.issueCount; i++) {
+      issues.push({
+        id: `${Date.now()}-${i}`,
+        number: `#${i}`,
+        owned: false,
+        coverColor: generateCoverColor(),
+      });
+    }
+
     const newCollection: Collection = {
       id: Date.now().toString(),
       title: result.title,
       publisher: result.publisher,
-      issues: [],
+      issues: issues,
       coverUrl: result.coverUrl,
     };
     
     setCollections([...collections, newCollection]);
-    toast.success(`${result.title} adicionado à coleção!`);
+    toast.success(`${result.title} adicionado com ${result.issueCount} edições!`);
     setSearchResults([]);
     setScrapingQuery("");
+  };
+
+  const deleteCollection = (collectionId: string) => {
+    setCollections(collections.filter(col => col.id !== collectionId));
+    toast.success("Coleção removida!");
   };
 
   const filteredCollections = collections.filter(collection =>
@@ -404,6 +419,17 @@ const Colecao = () => {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteCollection(collection.id);
+                              }}
+                              className="mr-2"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                             <div className={`px-3 py-1 rounded-full text-sm font-bold ${
                               ownedInCollection === totalInCollection && totalInCollection > 0
                                 ? "bg-primary text-primary-foreground"
