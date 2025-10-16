@@ -21,9 +21,9 @@ serve(async (req) => {
     // If volumeApiUrl is provided, fetch issues for that volume
     if (volumeApiUrl) {
       console.log('Fetching issues for volume:', volumeApiUrl);
-      const issuesUrl = `${volumeApiUrl}?api_key=${COMIC_VINE_API_KEY}&format=json&field_list=issues`;
+      const volumeUrl = `${volumeApiUrl}?api_key=${COMIC_VINE_API_KEY}&format=json&field_list=issues,image`;
       
-      const volumeResponse = await fetch(issuesUrl, {
+      const volumeResponse = await fetch(volumeUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
@@ -39,15 +39,47 @@ serve(async (req) => {
         throw new Error(`Comic Vine API error: ${volumeData.error}`);
       }
 
-      const issues = volumeData.results.issues.map((issue: any) => ({
-        number: issue.issue_number || 'N/A',
-        name: issue.name || '',
-        coverUrl: issue.image?.medium_url || issue.image?.small_url || null,
-        apiUrl: issue.api_detail_url
-      }));
+      // Get volume cover as fallback
+      const volumeCover = volumeData.results.image?.medium_url || volumeData.results.image?.small_url || null;
+
+      // Fetch details for each issue to get covers (limited to avoid rate limits)
+      const issuesWithCovers = await Promise.all(
+        volumeData.results.issues.slice(0, 50).map(async (issue: any) => {
+          try {
+            const issueDetailUrl = `${issue.api_detail_url}?api_key=${COMIC_VINE_API_KEY}&format=json&field_list=issue_number,name,image`;
+            const issueResponse = await fetch(issueDetailUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            });
+
+            if (issueResponse.ok) {
+              const issueData = await issueResponse.json();
+              if (issueData.error === 'OK') {
+                return {
+                  number: issueData.results.issue_number || 'N/A',
+                  name: issueData.results.name || '',
+                  coverUrl: issueData.results.image?.medium_url || issueData.results.image?.small_url || volumeCover,
+                  apiUrl: issue.api_detail_url
+                };
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching issue details:', err);
+          }
+          
+          // Fallback to volume cover
+          return {
+            number: issue.issue_number || 'N/A',
+            name: issue.name || '',
+            coverUrl: volumeCover,
+            apiUrl: issue.api_detail_url
+          };
+        })
+      );
 
       return new Response(
-        JSON.stringify({ success: true, data: issues }),
+        JSON.stringify({ success: true, data: issuesWithCovers }),
         { 
           headers: { 
             ...corsHeaders,

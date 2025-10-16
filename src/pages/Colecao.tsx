@@ -564,28 +564,30 @@ const Colecao = () => {
                                     issue.owned ? "opacity-100" : "opacity-50"
                                   }`}
                                 >
-                                  <div className="space-y-2">
-                                    {issue.coverUrl ? (
-                                      <img
-                                        src={issue.coverUrl}
-                                        alt={issue.number}
-                                        className="aspect-[2/3] w-full object-cover rounded-lg shadow-comic hover:shadow-comic-hover"
-                                        onError={(e) => {
-                                          console.error('Erro ao carregar imagem:', issue.coverUrl);
-                                          e.currentTarget.style.display = 'none';
-                                          if (e.currentTarget.nextElementSibling) {
-                                            (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
-                                          }
-                                        }}
-                                      />
-                                    ) : null}
-                                    <div 
-                                      className={`aspect-[2/3] ${issue.coverColor} rounded-lg shadow-comic hover:shadow-comic-hover flex items-center justify-center ${issue.coverUrl ? 'hidden' : ''}`}
-                                    >
-                                      <span className="text-white text-2xl font-black drop-shadow-lg">
-                                        {issue.number}
-                                      </span>
-                                    </div>
+                                   <div className="space-y-2">
+                                     {issue.coverUrl ? (
+                                       <img
+                                         src={issue.coverUrl}
+                                         alt={issue.number}
+                                         className="aspect-[2/3] w-full object-cover rounded-lg shadow-comic hover:shadow-comic-hover"
+                                         onError={(e) => {
+                                           console.error('Erro ao carregar imagem:', issue.coverUrl);
+                                           const target = e.currentTarget;
+                                           target.style.display = 'none';
+                                           const fallback = target.nextElementSibling as HTMLElement;
+                                           if (fallback) {
+                                             fallback.classList.remove('hidden');
+                                           }
+                                         }}
+                                       />
+                                     ) : null}
+                                     <div 
+                                       className={`aspect-[2/3] ${issue.coverColor} rounded-lg shadow-comic hover:shadow-comic-hover flex items-center justify-center ${issue.coverUrl ? 'hidden' : ''}`}
+                                     >
+                                       <span className="text-white text-2xl font-black drop-shadow-lg">
+                                         {issue.number}
+                                       </span>
+                                     </div>
                                     <div className="flex items-center gap-2">
                                       <Checkbox
                                         checked={issue.owned}
@@ -616,26 +618,28 @@ const Colecao = () => {
       </main>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black">
               {selectedCollection?.title} - Edição {selectedIssue?.number}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-6 pb-4">
             {/* Left side - Cover */}
             <div className="space-y-4">
-              <div className="relative">
+              <div className="relative mx-auto max-w-sm">
                 {selectedIssue?.coverUrl ? (
                   <img
                     src={selectedIssue.coverUrl}
                     alt={selectedIssue.number}
                     className="w-full aspect-[2/3] object-cover rounded-lg shadow-comic"
                     onError={(e) => {
-                      console.error('Erro ao carregar imagem no modal:', selectedIssue.coverUrl);
-                      e.currentTarget.style.display = 'none';
-                      if (e.currentTarget.nextElementSibling) {
-                        (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                      console.error('Erro ao carregar imagem:', selectedIssue.coverUrl);
+                      const target = e.currentTarget;
+                      target.style.display = 'none';
+                      const fallback = target.nextElementSibling as HTMLElement;
+                      if (fallback) {
+                        fallback.classList.remove('hidden');
                       }
                     }}
                   />
