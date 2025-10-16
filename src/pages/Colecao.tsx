@@ -4,13 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Library, BookOpen, Download, Trash2, CheckSquare, Square } from "lucide-react";
+import { Plus, Search, Library, BookOpen, Download, Trash2, CheckSquare, Square, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -107,6 +114,7 @@ const Colecao = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<ComicVineResult[]>([]);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const toggleIssueOwned = (collectionId: string, issueId: string) => {
@@ -273,9 +281,27 @@ const Colecao = () => {
     toast.success(ownedStatus ? "Todas marcadas como possuídas!" : "Todas desmarcadas!");
   };
 
-  const handleIssueDoubleClick = (issue: Issue) => {
+  const handleIssueClick = (issue: Issue, collection: Collection) => {
     setSelectedIssue(issue);
+    setSelectedCollection(collection);
     setIsDialogOpen(true);
+  };
+
+  const navigateIssue = (direction: 'prev' | 'next') => {
+    if (!selectedCollection || !selectedIssue) return;
+    
+    const currentIndex = selectedCollection.issues.findIndex(i => i.id === selectedIssue.id);
+    let newIndex = currentIndex;
+    
+    if (direction === 'prev' && currentIndex > 0) {
+      newIndex = currentIndex - 1;
+    } else if (direction === 'next' && currentIndex < selectedCollection.issues.length - 1) {
+      newIndex = currentIndex + 1;
+    }
+    
+    if (newIndex !== currentIndex) {
+      setSelectedIssue(selectedCollection.issues[newIndex]);
+    }
   };
 
   const filteredCollections = collections.filter(collection =>
@@ -533,43 +559,46 @@ const Colecao = () => {
                               {collection.issues.map((issue) => (
                                 <div
                                   key={issue.id}
-                                  onClick={() => toggleIssueOwned(collection.id, issue.id)}
-                                  onDoubleClick={() => handleIssueDoubleClick(issue)}
+                                  onClick={() => handleIssueClick(issue, collection)}
                                   className={`cursor-pointer transition-all duration-300 hover:-translate-y-1 ${
                                     issue.owned ? "opacity-100" : "opacity-50"
                                   }`}
                                 >
-                                  <div className="relative">
+                                  <div className="space-y-2">
                                     {issue.coverUrl ? (
                                       <img
                                         src={issue.coverUrl}
                                         alt={issue.number}
                                         className="aspect-[2/3] w-full object-cover rounded-lg shadow-comic hover:shadow-comic-hover"
+                                        onError={(e) => {
+                                          console.error('Erro ao carregar imagem:', issue.coverUrl);
+                                          e.currentTarget.style.display = 'none';
+                                          if (e.currentTarget.nextElementSibling) {
+                                            (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                                          }
+                                        }}
                                       />
-                                    ) : (
-                                      <div className={`aspect-[2/3] ${issue.coverColor} rounded-lg shadow-comic hover:shadow-comic-hover flex items-center justify-center`}>
-                                        <span className="text-white text-2xl font-black drop-shadow-lg">
-                                          {issue.number}
-                                        </span>
-                                      </div>
-                                    )}
-                                    <div className="absolute top-2 right-2">
+                                    ) : null}
+                                    <div 
+                                      className={`aspect-[2/3] ${issue.coverColor} rounded-lg shadow-comic hover:shadow-comic-hover flex items-center justify-center ${issue.coverUrl ? 'hidden' : ''}`}
+                                    >
+                                      <span className="text-white text-2xl font-black drop-shadow-lg">
+                                        {issue.number}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
                                       <Checkbox
                                         checked={issue.owned}
-                                        className="bg-white border-2 shadow-md"
+                                        className="border-2"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           toggleIssueOwned(collection.id, issue.id);
                                         }}
                                       />
+                                      <span className="text-sm font-bold text-foreground">
+                                        {issue.number}
+                                      </span>
                                     </div>
-                                    {issue.owned && (
-                                      <div className="absolute inset-0 flex items-center justify-center bg-primary/20 rounded-lg">
-                                        <div className="bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-black">
-                                          ✓ TENHO
-                                        </div>
-                                      </div>
-                                    )}
                                   </div>
                                 </div>
                               ))}
@@ -587,41 +616,112 @@ const Colecao = () => {
       </main>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-5xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black">
-              Edição {selectedIssue?.number}
+              {selectedCollection?.title} - Edição {selectedIssue?.number}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {selectedIssue?.coverUrl ? (
-              <img
-                src={selectedIssue.coverUrl}
-                alt={selectedIssue.number}
-                className="w-full aspect-[2/3] object-cover rounded-lg shadow-comic"
-              />
-            ) : (
-              <div className={`w-full aspect-[2/3] ${selectedIssue?.coverColor} rounded-lg shadow-comic flex items-center justify-center`}>
-                <span className="text-white text-4xl font-black drop-shadow-lg">
-                  {selectedIssue?.number}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Left side - Cover */}
+            <div className="space-y-4">
+              <div className="relative">
+                {selectedIssue?.coverUrl ? (
+                  <img
+                    src={selectedIssue.coverUrl}
+                    alt={selectedIssue.number}
+                    className="w-full aspect-[2/3] object-cover rounded-lg shadow-comic"
+                    onError={(e) => {
+                      console.error('Erro ao carregar imagem no modal:', selectedIssue.coverUrl);
+                      e.currentTarget.style.display = 'none';
+                      if (e.currentTarget.nextElementSibling) {
+                        (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                      }
+                    }}
+                  />
+                ) : null}
+                <div 
+                  className={`w-full aspect-[2/3] ${selectedIssue?.coverColor} rounded-lg shadow-comic flex items-center justify-center ${selectedIssue?.coverUrl ? 'hidden' : ''}`}
+                >
+                  <span className="text-white text-6xl font-black drop-shadow-lg">
+                    {selectedIssue?.number}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-center gap-3">
+                <Checkbox
+                  checked={selectedIssue?.owned}
+                  onCheckedChange={() => {
+                    if (selectedCollection && selectedIssue) {
+                      toggleIssueOwned(selectedCollection.id, selectedIssue.id);
+                      setSelectedIssue({ ...selectedIssue, owned: !selectedIssue.owned });
+                    }
+                  }}
+                  className="border-2 h-5 w-5"
+                />
+                <span className="text-lg font-bold text-foreground">
+                  {selectedIssue?.owned ? "✓ Tenho esta edição" : "Não tenho esta edição"}
                 </span>
               </div>
-            )}
-            {selectedIssue?.name && (
+            </div>
+
+            {/* Right side - Information */}
+            <div className="space-y-6">
               <div>
-                <h4 className="font-bold text-muted-foreground text-sm mb-1">Título:</h4>
-                <p className="text-foreground">{selectedIssue.name}</p>
+                <h4 className="font-bold text-muted-foreground text-sm mb-2">Coleção:</h4>
+                <p className="text-xl font-bold text-foreground">{selectedCollection?.title}</p>
+                <p className="text-sm text-muted-foreground">{selectedCollection?.publisher}</p>
               </div>
-            )}
-            <div>
-              <h4 className="font-bold text-muted-foreground text-sm mb-1">Status:</h4>
-              <p className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold ${
-                selectedIssue?.owned 
-                  ? "bg-primary text-primary-foreground" 
-                  : "bg-muted text-muted-foreground"
-              }`}>
-                {selectedIssue?.owned ? "✓ Tenho" : "Não tenho"}
-              </p>
+
+              <div>
+                <h4 className="font-bold text-muted-foreground text-sm mb-2">Edição:</h4>
+                <p className="text-lg font-bold text-foreground">{selectedIssue?.number}</p>
+              </div>
+
+              {selectedIssue?.name && (
+                <div>
+                  <h4 className="font-bold text-muted-foreground text-sm mb-2">Título:</h4>
+                  <p className="text-foreground">{selectedIssue.name}</p>
+                </div>
+              )}
+
+              <div>
+                <h4 className="font-bold text-muted-foreground text-sm mb-2">Status:</h4>
+                <p className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${
+                  selectedIssue?.owned 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-muted text-muted-foreground"
+                }`}>
+                  {selectedIssue?.owned ? "✓ Tenho" : "Não tenho"}
+                </p>
+              </div>
+
+              {/* Navigation */}
+              <div className="pt-4 border-t">
+                <h4 className="font-bold text-muted-foreground text-sm mb-3">Navegar:</h4>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateIssue('prev')}
+                    disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === 0}
+                    className="flex-1"
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-2" />
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateIssue('next')}
+                    disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === selectedCollection.issues.length - 1}
+                    className="flex-1"
+                  >
+                    Próxima
+                    <ChevronRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </DialogContent>
