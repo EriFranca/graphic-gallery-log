@@ -12,6 +12,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Carousel,
   CarouselContent,
   CarouselItem,
@@ -117,6 +127,7 @@ const Colecao = () => {
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [collectionToDelete, setCollectionToDelete] = useState<string | null>(null);
 
   const toggleIssueOwned = (collectionId: string, issueId: string) => {
     setCollections(collections.map(collection => {
@@ -266,6 +277,7 @@ const Colecao = () => {
 
   const deleteCollection = (collectionId: string) => {
     setCollections(collections.filter(col => col.id !== collectionId));
+    setCollectionToDelete(null);
     toast.success("Coleção removida!");
   };
 
@@ -542,7 +554,7 @@ const Colecao = () => {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                deleteCollection(collection.id);
+                                setCollectionToDelete(collection.id);
                               }}
                               className="mr-2"
                             >
@@ -561,7 +573,17 @@ const Colecao = () => {
                           </div>
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent className="px-6 pb-6">
+                      <AccordionContent 
+                        className="px-6 pb-6 relative"
+                        style={{
+                          backgroundImage: collection.issues.find(i => i.owned)?.coverUrl 
+                            ? `linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), url(${collection.issues.find(i => i.owned)?.coverUrl})`
+                            : 'none',
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          backgroundRepeat: 'no-repeat'
+                        }}
+                      >
                         {collection.issues.length === 0 ? (
                           <p className="text-center text-muted-foreground py-8">
                             Nenhuma edição adicionada ainda
@@ -810,6 +832,26 @@ const Colecao = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={collectionToDelete !== null} onOpenChange={(open) => !open && setCollectionToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta coleção? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => collectionToDelete && deleteCollection(collectionToDelete)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
