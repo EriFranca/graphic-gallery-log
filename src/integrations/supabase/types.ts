@@ -14,7 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      collections: {
+        Row: {
+          comic_vine_id: string | null
+          cover_url: string | null
+          created_at: string
+          id: string
+          publisher: string | null
+          start_year: number | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comic_vine_id?: string | null
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          publisher?: string | null
+          start_year?: number | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comic_vine_id?: string | null
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          publisher?: string | null
+          start_year?: number | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      issues: {
+        Row: {
+          collection_id: string
+          condition_rating: number | null
+          cover_color: string | null
+          cover_url: string | null
+          created_at: string
+          id: string
+          is_owned: boolean
+          issue_number: string
+          name: string | null
+          updated_at: string
+        }
+        Insert: {
+          collection_id: string
+          condition_rating?: number | null
+          cover_color?: string | null
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          is_owned?: boolean
+          issue_number: string
+          name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          collection_id?: string
+          condition_rating?: number | null
+          cover_color?: string | null
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          is_owned?: boolean
+          issue_number?: string
+          name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issues_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

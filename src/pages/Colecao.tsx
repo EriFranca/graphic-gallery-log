@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Library, BookOpen, Download, Trash2, CheckSquare, Square, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Library, BookOpen, Download, Trash2, CheckSquare, Square, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,7 @@ interface Issue {
   coverColor: string;
   coverUrl?: string;
   name?: string;
+  conditionRating?: number;
 }
 
 interface Collection {
@@ -302,6 +303,24 @@ const Colecao = () => {
     if (newIndex !== currentIndex) {
       setSelectedIssue(selectedCollection.issues[newIndex]);
     }
+  };
+
+  const updateConditionRating = (collectionId: string, issueId: string, rating: number) => {
+    setCollections(collections.map(collection => {
+      if (collection.id === collectionId) {
+        return {
+          ...collection,
+          issues: collection.issues.map(issue =>
+            issue.id === issueId ? { ...issue, conditionRating: rating } : issue
+          ),
+        };
+      }
+      return collection;
+    }));
+    if (selectedIssue && selectedIssue.id === issueId) {
+      setSelectedIssue({ ...selectedIssue, conditionRating: rating });
+    }
+    toast.success("Avaliação de conservação atualizada!");
   };
 
   const filteredCollections = collections.filter(collection =>
@@ -697,6 +716,37 @@ const Colecao = () => {
                     : "bg-muted text-muted-foreground"
                 }`}>
                   {selectedIssue?.owned ? "✓ Tenho" : "Não tenho"}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-muted-foreground text-sm mb-2">Estado de Conservação:</h4>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((rating) => (
+                    <button
+                      key={rating}
+                      onClick={() => {
+                        if (selectedCollection && selectedIssue) {
+                          updateConditionRating(selectedCollection.id, selectedIssue.id, rating);
+                        }
+                      }}
+                      className="transition-colors hover:scale-110 transform duration-200"
+                    >
+                      <Star
+                        className={`h-8 w-8 ${
+                          selectedIssue?.conditionRating && rating <= selectedIssue.conditionRating
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-muted-foreground"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {selectedIssue?.conditionRating 
+                    ? `Avaliação: ${selectedIssue.conditionRating}/5`
+                    : "Clique nas estrelas para avaliar"
+                  }
                 </p>
               </div>
 
