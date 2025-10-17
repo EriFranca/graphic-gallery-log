@@ -607,19 +607,35 @@ const Colecao = () => {
                                          {issue.number}
                                        </span>
                                      </div>
-                                    <div className="flex items-center gap-2">
-                                      <Checkbox
-                                        checked={issue.owned}
-                                        className="border-2"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          toggleIssueOwned(collection.id, issue.id);
-                                        }}
-                                      />
-                                      <span className="text-sm font-bold text-foreground">
-                                        {issue.number}
-                                      </span>
-                                    </div>
+                                     <div className="space-y-1">
+                                       <div className="flex items-center gap-2">
+                                         <Checkbox
+                                           checked={issue.owned}
+                                           className="border-2"
+                                           onClick={(e) => {
+                                             e.stopPropagation();
+                                             toggleIssueOwned(collection.id, issue.id);
+                                           }}
+                                         />
+                                         <span className="text-sm font-bold text-foreground">
+                                           {issue.number}
+                                         </span>
+                                       </div>
+                                       {issue.conditionRating && (
+                                         <div className="flex gap-0.5 ml-1">
+                                           {[1, 2, 3, 4, 5].map((rating) => (
+                                             <Star
+                                               key={rating}
+                                               className={`h-3 w-3 ${
+                                                 rating <= issue.conditionRating!
+                                                   ? "fill-yellow-400 text-yellow-400"
+                                                   : "text-muted-foreground"
+                                               }`}
+                                             />
+                                           ))}
+                                         </div>
+                                       )}
+                                     </div>
                                   </div>
                                 </div>
                               ))}
