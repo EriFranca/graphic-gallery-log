@@ -42,9 +42,9 @@ serve(async (req) => {
       // Get volume cover as fallback
       const volumeCover = volumeData.results.image?.medium_url || volumeData.results.image?.small_url || null;
 
-      // Fetch details for each issue to get covers (limited to avoid rate limits)
+      // Fetch details for each issue to get covers
       const issuesWithCovers = await Promise.all(
-        volumeData.results.issues.slice(0, 50).map(async (issue: any) => {
+        volumeData.results.issues.map(async (issue: any) => {
           try {
             const issueDetailUrl = `${issue.api_detail_url}?api_key=${COMIC_VINE_API_KEY}&format=json&field_list=issue_number,name,image`;
             const issueResponse = await fetch(issueDetailUrl, {

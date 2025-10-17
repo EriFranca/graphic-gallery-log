@@ -505,6 +505,10 @@ const Colecao = () => {
                 {filteredCollections.map((collection) => {
                   const ownedInCollection = collection.issues.filter(i => i.owned).length;
                   const totalInCollection = collection.issues.length;
+                  const ratedIssues = collection.issues.filter(i => i.conditionRating);
+                  const averageRating = ratedIssues.length > 0 
+                    ? ratedIssues.reduce((sum, i) => sum + (i.conditionRating || 0), 0) / ratedIssues.length 
+                    : null;
                   
                   return (
                     <AccordionItem 
@@ -515,9 +519,19 @@ const Colecao = () => {
                       <AccordionTrigger className="px-6 py-4 hover:no-underline">
                         <div className="flex items-center justify-between w-full pr-4">
                           <div className="text-left">
-                            <h3 className="text-2xl font-black text-foreground mb-1">
-                              {collection.title}
-                            </h3>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="text-2xl font-black text-foreground">
+                                {collection.title}
+                              </h3>
+                              {averageRating && (
+                                <div className="flex items-center gap-1 bg-muted px-2 py-1 rounded-full">
+                                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                  <span className="text-sm font-bold text-foreground">
+                                    {averageRating.toFixed(1)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                             <p className="text-sm text-muted-foreground font-bold">
                               {collection.publisher} • {ownedInCollection}/{totalInCollection} edições
                             </p>
