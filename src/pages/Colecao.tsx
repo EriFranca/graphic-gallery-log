@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Library, BookOpen, Download, Trash2, CheckSquare, Square, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { Plus, Search, Library, BookOpen, Download, Trash2, CheckSquare, Square, ChevronLeft, ChevronRight, Star, LogOut } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/carousel";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { Session } from "@supabase/supabase-js";
 import {
   Accordion,
   AccordionContent,
@@ -39,20 +41,20 @@ import {
 
 interface Issue {
   id: string;
-  number: string;
-  owned: boolean;
-  coverColor: string;
-  coverUrl?: string;
+  issue_number: string;
+  is_owned: boolean;
+  cover_color: string;
+  cover_url?: string;
   name?: string;
-  conditionRating?: number;
+  condition_rating?: number;
 }
 
 interface Collection {
   id: string;
   title: string;
   publisher: string;
+  cover_url?: string;
   issues: Issue[];
-  coverUrl?: string;
 }
 
 interface ComicVineResult {
@@ -78,44 +80,10 @@ const generateCoverColor = () => {
   return colors[Math.floor(Math.random() * colors.length)];
 };
 
-const initialCollections: Collection[] = [
-  {
-    id: "1",
-    title: "Novos Titãs",
-    publisher: "Abril",
-    issues: [
-      { id: "1-1", number: "#1", owned: true, coverColor: "bg-gradient-to-br from-red-500 to-red-700" },
-      { id: "1-2", number: "#2", owned: true, coverColor: "bg-gradient-to-br from-blue-500 to-blue-700" },
-      { id: "1-3", number: "#3", owned: false, coverColor: "bg-gradient-to-br from-yellow-500 to-yellow-700" },
-      { id: "1-4", number: "#4", owned: false, coverColor: "bg-gradient-to-br from-green-500 to-green-700" },
-      { id: "1-5", number: "#5", owned: true, coverColor: "bg-gradient-to-br from-purple-500 to-purple-700" },
-    ],
-  },
-  {
-    id: "2",
-    title: "Homem-Aranha",
-    publisher: "Panini",
-    issues: [
-      { id: "2-1", number: "#1", owned: true, coverColor: "bg-gradient-to-br from-red-500 to-red-700" },
-      { id: "2-2", number: "#2", owned: false, coverColor: "bg-gradient-to-br from-blue-500 to-blue-700" },
-      { id: "2-3", number: "#3", owned: true, coverColor: "bg-gradient-to-br from-yellow-500 to-yellow-700" },
-    ],
-  },
-  {
-    id: "3",
-    title: "Batman",
-    publisher: "Panini",
-    issues: [
-      { id: "3-1", number: "#1", owned: false, coverColor: "bg-gradient-to-br from-gray-700 to-gray-900" },
-      { id: "3-2", number: "#2", owned: false, coverColor: "bg-gradient-to-br from-blue-500 to-blue-900" },
-      { id: "3-3", number: "#3", owned: true, coverColor: "bg-gradient-to-br from-yellow-500 to-yellow-700" },
-      { id: "3-4", number: "#4", owned: false, coverColor: "bg-gradient-to-br from-purple-500 to-purple-700" },
-    ],
-  },
-];
-
 const Colecao = () => {
-  const [collections, setCollections] = useState<Collection[]>(initialCollections);
+  const navigate = useNavigate();
+  const [session, setSession] = useState<Session | null>(null);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [newCollectionTitle, setNewCollectionTitle] = useState("");
   const [newCollectionPublisher, setNewCollectionPublisher] = useState("");
@@ -129,64 +97,182 @@ const Colecao = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [collectionToDelete, setCollectionToDelete] = useState<string | null>(null);
 
-  const toggleIssueOwned = (collectionId: string, issueId: string) => {
-    setCollections(collections.map(collection => {
-      if (collection.id === collectionId) {
-        return {
-          ...collection,
-          issues: collection.issues.map(issue =>
-            issue.id === issueId ? { ...issue, owned: !issue.owned } : issue
-          ),
-        };
+  // Check authentication
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (!session) {
+        navigate("/auth");
       }
-      return collection;
-    }));
-    toast.success("Coleção atualizada!");
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (!session) {
+        navigate("/auth");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  // Load collections from database
+  useEffect(() => {
+    if (session?.user) {
+      loadCollections();
+    }
+  }, [session]);
+
+  const loadCollections = async () => {
+    try {
+      const { data: collectionsData, error: collectionsError } = await supabase
+        .from('collections')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (collectionsError) throw collectionsError;
+
+      if (collectionsData) {
+        const collectionsWithIssues = await Promise.all(
+          collectionsData.map(async (collection) => {
+            const { data: issuesData, error: issuesError } = await supabase
+              .from('issues')
+              .select('*')
+              .eq('collection_id', collection.id)
+              .order('issue_number');
+
+            if (issuesError) throw issuesError;
+
+            return {
+              id: collection.id,
+              title: collection.title,
+              publisher: collection.publisher || "Desconhecido",
+              cover_url: collection.cover_url,
+              issues: issuesData || [],
+            };
+          })
+        );
+
+        setCollections(collectionsWithIssues);
+      }
+    } catch (error) {
+      console.error('Error loading collections:', error);
+      toast.error("Erro ao carregar coleções");
+    }
   };
 
-  const addCollection = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
+
+  const toggleIssueOwned = async (collectionId: string, issueId: string) => {
+    const collection = collections.find(c => c.id === collectionId);
+    const issue = collection?.issues.find(i => i.id === issueId);
+    
+    if (!issue) return;
+
+    try {
+      const { error } = await supabase
+        .from('issues')
+        .update({ is_owned: !issue.is_owned })
+        .eq('id', issueId);
+
+      if (error) throw error;
+
+      setCollections(collections.map(collection => {
+        if (collection.id === collectionId) {
+          return {
+            ...collection,
+            issues: collection.issues.map(issue =>
+              issue.id === issueId ? { ...issue, is_owned: !issue.is_owned } : issue
+            ),
+          };
+        }
+        return collection;
+      }));
+      
+      toast.success("Coleção atualizada!");
+    } catch (error) {
+      console.error('Error updating issue:', error);
+      toast.error("Erro ao atualizar edição");
+    }
+  };
+
+  const addCollection = async () => {
     if (!newCollectionTitle) {
       toast.error("Preencha o título da coleção!");
       return;
     }
     
-    const newCollection: Collection = {
-      id: Date.now().toString(),
-      title: newCollectionTitle,
-      publisher: newCollectionPublisher || "Desconhecido",
-      issues: [],
-    };
-    
-    setCollections([...collections, newCollection]);
-    setNewCollectionTitle("");
-    setNewCollectionPublisher("");
-    toast.success("Coleção adicionada!");
+    if (!session?.user) {
+      toast.error("Você precisa estar logado!");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('collections')
+        .insert({
+          title: newCollectionTitle,
+          publisher: newCollectionPublisher || "Desconhecido",
+          user_id: session.user.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setCollections([...collections, { ...data, issues: [] }]);
+        setNewCollectionTitle("");
+        setNewCollectionPublisher("");
+        toast.success("Coleção adicionada!");
+      }
+    } catch (error) {
+      console.error('Error adding collection:', error);
+      toast.error("Erro ao adicionar coleção");
+    }
   };
 
-  const addIssue = () => {
+  const addIssue = async () => {
     if (!selectedCollectionId || !newIssueNumber) {
       toast.error("Selecione uma coleção e preencha o número da edição!");
       return;
     }
 
-    setCollections(collections.map(collection => {
-      if (collection.id === selectedCollectionId) {
-        const newIssue: Issue = {
-          id: `${collection.id}-${Date.now()}`,
-          number: newIssueNumber,
-          owned: false,
-          coverColor: generateCoverColor(),
-        };
-        return {
-          ...collection,
-          issues: [...collection.issues, newIssue],
-        };
-      }
-      return collection;
-    }));
+    try {
+      const { data, error } = await supabase
+        .from('issues')
+        .insert({
+          collection_id: selectedCollectionId,
+          issue_number: newIssueNumber,
+          is_owned: false,
+          cover_color: generateCoverColor(),
+        })
+        .select()
+        .single();
 
-    setNewIssueNumber("");
-    toast.success("Edição adicionada!");
+      if (error) throw error;
+
+      if (data) {
+        setCollections(collections.map(collection => {
+          if (collection.id === selectedCollectionId) {
+            return {
+              ...collection,
+              issues: [...collection.issues, data],
+            };
+          }
+          return collection;
+        }));
+
+        setNewIssueNumber("");
+        toast.success("Edição adicionada!");
+      }
+    } catch (error) {
+      console.error('Error adding issue:', error);
+      toast.error("Erro ao adicionar edição");
+    }
   };
 
   const searchComicVine = async () => {
@@ -220,10 +306,29 @@ const Colecao = () => {
   };
 
   const addCollectionFromComicVine = async (result: ComicVineResult) => {
+    if (!session?.user) {
+      toast.error("Você precisa estar logado!");
+      return;
+    }
+
     setIsLoading(true);
     toast.info("Buscando capas das edições...");
     
     try {
+      // Create collection first
+      const { data: collectionData, error: collectionError } = await supabase
+        .from('collections')
+        .insert({
+          title: result.title,
+          publisher: result.publisher,
+          user_id: session.user.id,
+          cover_url: result.coverUrl,
+        })
+        .select()
+        .single();
+
+      if (collectionError) throw collectionError;
+
       // Fetch issues with covers
       const { data, error } = await supabase.functions.invoke('search-comic-vine', {
         body: { volumeApiUrl: result.apiUrl }
@@ -231,67 +336,106 @@ const Colecao = () => {
 
       if (error) throw error;
 
-      let issues: Issue[] = [];
+      let issuesData: Issue[] = [];
       
       if (data.success && data.data.length > 0) {
-        // Use real covers from Comic Vine
-        issues = data.data.map((issue: any, index: number) => ({
-          id: `${Date.now()}-${index}`,
-          number: issue.number,
+        // Insert issues into database
+        const issuesToInsert = data.data.map((issue: any) => ({
+          collection_id: collectionData.id,
+          issue_number: issue.number,
           name: issue.name,
-          owned: false,
-          coverColor: generateCoverColor(),
-          coverUrl: issue.coverUrl,
+          is_owned: false,
+          cover_color: generateCoverColor(),
+          cover_url: issue.coverUrl,
         }));
+
+        const { data: insertedIssues, error: issuesError } = await supabase
+          .from('issues')
+          .insert(issuesToInsert)
+          .select();
+
+        if (issuesError) throw issuesError;
+        issuesData = insertedIssues || [];
       } else {
         // Fallback to numbered issues without covers
-        for (let i = 1; i <= result.issueCount; i++) {
-          issues.push({
-            id: `${Date.now()}-${i}`,
-            number: `#${i}`,
-            owned: false,
-            coverColor: generateCoverColor(),
-          });
-        }
+        const issuesToInsert = Array.from({ length: result.issueCount }, (_, i) => ({
+          collection_id: collectionData.id,
+          issue_number: `#${i + 1}`,
+          is_owned: false,
+          cover_color: generateCoverColor(),
+        }));
+
+        const { data: insertedIssues, error: issuesError } = await supabase
+          .from('issues')
+          .insert(issuesToInsert)
+          .select();
+
+        if (issuesError) throw issuesError;
+        issuesData = insertedIssues || [];
       }
 
       const newCollection: Collection = {
-        id: Date.now().toString(),
-        title: result.title,
-        publisher: result.publisher,
-        issues: issues,
-        coverUrl: result.coverUrl,
+        ...collectionData,
+        issues: issuesData,
       };
       
       setCollections([...collections, newCollection]);
-      toast.success(`${result.title} adicionado com ${issues.length} edições!`);
+      toast.success(`${result.title} adicionado com ${issuesData.length} edições!`);
       setSearchResults([]);
       setScrapingQuery("");
     } catch (error) {
-      console.error('Erro ao buscar edições:', error);
-      toast.error("Erro ao buscar capas das edições");
+      console.error('Erro ao adicionar coleção:', error);
+      toast.error("Erro ao adicionar coleção");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const deleteCollection = (collectionId: string) => {
-    setCollections(collections.filter(col => col.id !== collectionId));
-    setCollectionToDelete(null);
-    toast.success("Coleção removida!");
+  const deleteCollection = async (collectionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('collections')
+        .delete()
+        .eq('id', collectionId);
+
+      if (error) throw error;
+
+      setCollections(collections.filter(col => col.id !== collectionId));
+      setCollectionToDelete(null);
+      toast.success("Coleção removida!");
+    } catch (error) {
+      console.error('Error deleting collection:', error);
+      toast.error("Erro ao remover coleção");
+    }
   };
 
-  const toggleAllIssues = (collectionId: string, ownedStatus: boolean) => {
-    setCollections(collections.map(collection => {
-      if (collection.id === collectionId) {
-        return {
-          ...collection,
-          issues: collection.issues.map(issue => ({ ...issue, owned: ownedStatus })),
-        };
-      }
-      return collection;
-    }));
-    toast.success(ownedStatus ? "Todas marcadas como possuídas!" : "Todas desmarcadas!");
+  const toggleAllIssues = async (collectionId: string, ownedStatus: boolean) => {
+    const collection = collections.find(c => c.id === collectionId);
+    if (!collection) return;
+
+    try {
+      const { error } = await supabase
+        .from('issues')
+        .update({ is_owned: ownedStatus })
+        .eq('collection_id', collectionId);
+
+      if (error) throw error;
+
+      setCollections(collections.map(collection => {
+        if (collection.id === collectionId) {
+          return {
+            ...collection,
+            issues: collection.issues.map(issue => ({ ...issue, is_owned: ownedStatus })),
+          };
+        }
+        return collection;
+      }));
+      
+      toast.success(ownedStatus ? "Todas marcadas como possuídas!" : "Todas desmarcadas!");
+    } catch (error) {
+      console.error('Error updating issues:', error);
+      toast.error("Erro ao atualizar edições");
+    }
   };
 
   const handleIssueClick = (issue: Issue, collection: Collection) => {
@@ -317,22 +461,36 @@ const Colecao = () => {
     }
   };
 
-  const updateConditionRating = (collectionId: string, issueId: string, rating: number) => {
-    setCollections(collections.map(collection => {
-      if (collection.id === collectionId) {
-        return {
-          ...collection,
-          issues: collection.issues.map(issue =>
-            issue.id === issueId ? { ...issue, conditionRating: rating } : issue
-          ),
-        };
+  const updateConditionRating = async (collectionId: string, issueId: string, rating: number) => {
+    try {
+      const { error } = await supabase
+        .from('issues')
+        .update({ condition_rating: rating })
+        .eq('id', issueId);
+
+      if (error) throw error;
+
+      setCollections(collections.map(collection => {
+        if (collection.id === collectionId) {
+          return {
+            ...collection,
+            issues: collection.issues.map(issue =>
+              issue.id === issueId ? { ...issue, condition_rating: rating } : issue
+            ),
+          };
+        }
+        return collection;
+      }));
+      
+      if (selectedIssue && selectedIssue.id === issueId) {
+        setSelectedIssue({ ...selectedIssue, condition_rating: rating });
       }
-      return collection;
-    }));
-    if (selectedIssue && selectedIssue.id === issueId) {
-      setSelectedIssue({ ...selectedIssue, conditionRating: rating });
+      
+      toast.success("Avaliação de conservação atualizada!");
+    } catch (error) {
+      console.error('Error updating condition rating:', error);
+      toast.error("Erro ao atualizar avaliação");
     }
-    toast.success("Avaliação de conservação atualizada!");
   };
 
   const filteredCollections = collections.filter(collection =>
@@ -342,9 +500,13 @@ const Colecao = () => {
 
   const totalIssues = collections.reduce((acc, col) => acc + col.issues.length, 0);
   const ownedIssues = collections.reduce(
-    (acc, col) => acc + col.issues.filter(i => i.owned).length,
+    (acc, col) => acc + col.issues.filter(i => i.is_owned).length,
     0
   );
+
+  if (!session) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -352,8 +514,19 @@ const Colecao = () => {
       
       <main className="container mx-auto px-4 py-12">
         <div className="text-center mb-12 animate-slide-in">
-          <div className="inline-flex items-center justify-center p-3 bg-primary rounded-full mb-4 shadow-comic">
-            <Library className="h-8 w-8 text-primary-foreground" />
+          <div className="flex justify-center items-center gap-4 mb-4">
+            <div className="inline-flex items-center justify-center p-3 bg-primary rounded-full shadow-comic">
+              <Library className="h-8 w-8 text-primary-foreground" />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Button>
           </div>
           <h1 className="text-5xl md:text-6xl font-black mb-4 text-foreground">
             MINHA COLEÇÃO
@@ -399,28 +572,26 @@ const Colecao = () => {
                       key={index}
                       className="flex gap-3 p-3 border-2 rounded-lg hover:bg-accent/50 transition-colors"
                     >
-                      <img
-                        src={result.coverUrl}
-                        alt={result.title}
-                        className="w-16 h-24 object-cover rounded shadow-md"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-foreground truncate">
-                          {result.title}
-                        </h4>
-                        <p className="text-sm text-muted-foreground">
-                          {result.publisher} • {result.year}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {result.issueCount} edições
-                        </p>
+                      {result.coverUrl && (
+                        <img
+                          src={result.coverUrl}
+                          alt={result.title}
+                          className="w-16 h-24 object-cover rounded shadow-md"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <h3 className="font-bold text-foreground">{result.title}</h3>
+                        <p className="text-sm text-muted-foreground">{result.publisher} ({result.year})</p>
+                        <p className="text-xs text-muted-foreground">{result.issueCount} edições</p>
                       </div>
                       <Button
-                        onClick={() => addCollectionFromComicVine(result)}
                         size="sm"
-                        className="shrink-0"
+                        onClick={() => addCollectionFromComicVine(result)}
+                        disabled={isLoading}
+                        className="shadow-comic"
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-4 w-4 mr-1" />
+                        Adicionar
                       </Button>
                     </div>
                   ))}
@@ -429,126 +600,168 @@ const Colecao = () => {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card className="shadow-comic border-2">
-              <CardHeader>
-                <CardTitle className="text-xl font-black text-primary">Nova Coleção</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <Input
-                    placeholder="Título (ex: Novos Titãs)"
-                    value={newCollectionTitle}
-                    onChange={(e) => setNewCollectionTitle(e.target.value)}
-                    className="border-2"
-                  />
-                  <Input
-                    placeholder="Editora (ex: Abril)"
-                    value={newCollectionPublisher}
-                    onChange={(e) => setNewCollectionPublisher(e.target.value)}
-                    className="border-2"
-                  />
-                  <Button 
-                    onClick={addCollection}
-                    className="w-full shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Adicionar Coleção
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          <Card className="shadow-comic border-2">
+            <CardHeader>
+              <CardTitle className="text-xl font-black text-foreground flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                Adicionar Coleção Manualmente
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Input
+                  placeholder="Título da coleção"
+                  value={newCollectionTitle}
+                  onChange={(e) => setNewCollectionTitle(e.target.value)}
+                  className="border-2"
+                />
+                <Input
+                  placeholder="Editora (opcional)"
+                  value={newCollectionPublisher}
+                  onChange={(e) => setNewCollectionPublisher(e.target.value)}
+                  className="border-2"
+                />
+              </div>
+              <Button 
+                onClick={addCollection}
+                className="w-full shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5"
+              >
+                <Plus className="mr-2 h-4 w-4" /> Adicionar Coleção
+              </Button>
+            </CardContent>
+          </Card>
 
-            <Card className="shadow-comic border-2">
-              <CardHeader>
-                <CardTitle className="text-xl font-black text-secondary">Nova Edição</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <select
-                    value={selectedCollectionId}
-                    onChange={(e) => setSelectedCollectionId(e.target.value)}
-                    className="w-full px-3 py-2 border-2 rounded-lg bg-background text-foreground"
-                  >
-                    <option value="">Selecione uma coleção</option>
-                    {collections.map((col) => (
-                      <option key={col.id} value={col.id}>
-                        {col.title} ({col.publisher})
-                      </option>
-                    ))}
-                  </select>
-                  <Input
-                    placeholder="Número da edição (ex: #1)"
-                    value={newIssueNumber}
-                    onChange={(e) => setNewIssueNumber(e.target.value)}
-                    className="border-2"
-                  />
-                  <Button 
-                    onClick={addIssue}
-                    variant="secondary"
-                    className="w-full shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Adicionar Edição
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="shadow-comic border-2">
+            <CardHeader>
+              <CardTitle className="text-xl font-black text-foreground flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Adicionar Edição
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <select
+                  value={selectedCollectionId}
+                  onChange={(e) => setSelectedCollectionId(e.target.value)}
+                  className="flex h-10 w-full rounded-md border-2 border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="">Selecione uma coleção</option>
+                  {collections.map(collection => (
+                    <option key={collection.id} value={collection.id}>
+                      {collection.title}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  placeholder="Número da edição (ex: #1)"
+                  value={newIssueNumber}
+                  onChange={(e) => setNewIssueNumber(e.target.value)}
+                  className="border-2"
+                />
+              </div>
+              <Button 
+                onClick={addIssue}
+                className="w-full shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5"
+              >
+                <Plus className="mr-2 h-4 w-4" /> Adicionar Edição
+              </Button>
+            </CardContent>
+          </Card>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              placeholder="Buscar coleção..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 border-2 shadow-comic"
-            />
-          </div>
+          <Card className="shadow-comic border-2">
+            <CardHeader>
+              <CardTitle className="text-xl font-black text-foreground flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                Buscar Coleção
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Input
+                placeholder="Buscar por título ou editora..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="border-2"
+              />
+            </CardContent>
+          </Card>
 
           <div className="space-y-4">
             {filteredCollections.length === 0 ? (
-              <Card className="shadow-comic border-2 p-8 text-center">
-                <BookOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-xl text-muted-foreground">Nenhuma coleção encontrada</p>
+              <Card className="shadow-comic border-2">
+                <CardContent className="text-center py-12">
+                  <Library className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-xl font-bold text-muted-foreground">
+                    Nenhuma coleção encontrada
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Adicione sua primeira coleção ou busque no Comic Vine!
+                  </p>
+                </CardContent>
               </Card>
             ) : (
               <Accordion type="multiple" className="space-y-4">
                 {filteredCollections.map((collection) => {
-                  const ownedInCollection = collection.issues.filter(i => i.owned).length;
-                  const totalInCollection = collection.issues.length;
-                  const ratedIssues = collection.issues.filter(i => i.conditionRating);
-                  const averageRating = ratedIssues.length > 0 
-                    ? ratedIssues.reduce((sum, i) => sum + (i.conditionRating || 0), 0) / ratedIssues.length 
-                    : null;
+                  const ownedCount = collection.issues.filter(i => i.is_owned).length;
+                  const totalCount = collection.issues.length;
+                  const averageRating = collection.issues
+                    .filter(i => i.is_owned && i.condition_rating)
+                    .reduce((acc, i) => acc + (i.condition_rating || 0), 0) / 
+                    (collection.issues.filter(i => i.is_owned && i.condition_rating).length || 1);
+                  const hasRatings = collection.issues.some(i => i.is_owned && i.condition_rating);
                   
                   return (
-                    <AccordionItem 
-                      key={collection.id} 
-                      value={collection.id}
-                      className="border-2 rounded-lg shadow-comic hover:shadow-comic-hover transition-all duration-300 bg-card overflow-hidden"
-                    >
-                      <AccordionTrigger className="px-6 py-4 hover:no-underline">
+                    <AccordionItem key={collection.id} value={collection.id} className="border-2 rounded-lg shadow-comic">
+                      <AccordionTrigger className="px-6 hover:no-underline">
                         <div className="flex items-center justify-between w-full pr-4">
-                          <div className="text-left">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="text-2xl font-black text-foreground">
-                                {collection.title}
-                              </h3>
-                              {averageRating && (
-                                <div className="flex items-center gap-1 bg-muted px-2 py-1 rounded-full">
-                                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                  <span className="text-sm font-bold text-foreground">
-                                    {averageRating.toFixed(1)}
-                                  </span>
-                                </div>
-                              )}
+                          <div className="flex items-center gap-3">
+                            {collection.cover_url && (
+                              <img
+                                src={collection.cover_url}
+                                alt={collection.title}
+                                className="w-12 h-16 object-cover rounded shadow-md"
+                              />
+                            )}
+                            <div className="text-left">
+                              <h3 className="text-lg font-black text-foreground">{collection.title}</h3>
+                              <p className="text-sm text-muted-foreground">{collection.publisher}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs font-bold text-primary">
+                                  {ownedCount} de {totalCount} edições
+                                </span>
+                                {hasRatings && (
+                                  <div className="flex items-center gap-1">
+                                    <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+                                    <span className="text-xs font-bold text-yellow-600">
+                                      {averageRating.toFixed(1)}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <p className="text-sm text-muted-foreground font-bold">
-                              {collection.publisher} • {ownedInCollection}/{totalInCollection} edições
-                            </p>
                           </div>
                           <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleAllIssues(collection.id, true);
+                              }}
+                              className="mr-2"
+                            >
+                              <CheckSquare className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleAllIssues(collection.id, false);
+                              }}
+                              className="mr-2"
+                            >
+                              <Square className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="destructive"
                               size="sm"
@@ -560,24 +773,14 @@ const Colecao = () => {
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
-                            <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-                              ownedInCollection === totalInCollection && totalInCollection > 0
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted text-muted-foreground"
-                            }`}>
-                              {totalInCollection > 0 
-                                ? `${Math.round((ownedInCollection / totalInCollection) * 100)}%`
-                                : "0%"
-                              }
-                            </div>
                           </div>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent 
                         className="px-6 pb-6 relative"
                         style={{
-                          backgroundImage: collection.issues.find(i => i.owned)?.coverUrl 
-                            ? `linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), url(${collection.issues.find(i => i.owned)?.coverUrl})`
+                          backgroundImage: collection.issues.find(i => i.is_owned)?.cover_url 
+                            ? `linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), url(${collection.issues.find(i => i.is_owned)?.cover_url})`
                             : 'none',
                           backgroundSize: 'cover',
                           backgroundPosition: 'center',
@@ -589,94 +792,47 @@ const Colecao = () => {
                             Nenhuma edição adicionada ainda
                           </p>
                         ) : (
-                          <>
-                            <div className="flex gap-2 mb-4">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => toggleAllIssues(collection.id, true)}
-                                className="flex-1"
+                          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-4">
+                            {collection.issues.map((issue) => (
+                              <div
+                                key={issue.id}
+                                className="relative group cursor-pointer"
+                                onClick={() => handleIssueClick(issue, collection)}
                               >
-                                <CheckSquare className="h-4 w-4 mr-2" />
-                                Marcar todas
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => toggleAllIssues(collection.id, false)}
-                                className="flex-1"
-                              >
-                                <Square className="h-4 w-4 mr-2" />
-                                Desmarcar todas
-                              </Button>
-                            </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                              {collection.issues.map((issue) => (
-                                <div
-                                  key={issue.id}
-                                  onClick={() => handleIssueClick(issue, collection)}
-                                  className={`cursor-pointer transition-all duration-300 hover:-translate-y-1 ${
-                                    issue.owned ? "opacity-100" : "opacity-50"
-                                  }`}
-                                >
-                                   <div className="space-y-2">
-                                     {issue.coverUrl ? (
-                                       <img
-                                         src={issue.coverUrl}
-                                         alt={issue.number}
-                                         className="aspect-[2/3] w-full object-cover rounded-lg shadow-comic hover:shadow-comic-hover"
-                                         onError={(e) => {
-                                           console.error('Erro ao carregar imagem:', issue.coverUrl);
-                                           const target = e.currentTarget;
-                                           target.style.display = 'none';
-                                           const fallback = target.nextElementSibling as HTMLElement;
-                                           if (fallback) {
-                                             fallback.classList.remove('hidden');
-                                           }
-                                         }}
-                                       />
-                                     ) : null}
-                                     <div 
-                                       className={`aspect-[2/3] ${issue.coverColor} rounded-lg shadow-comic hover:shadow-comic-hover flex items-center justify-center ${issue.coverUrl ? 'hidden' : ''}`}
-                                     >
-                                       <span className="text-white text-2xl font-black drop-shadow-lg">
-                                         {issue.number}
-                                       </span>
-                                     </div>
-                                     <div className="space-y-1">
-                                       <div className="flex items-center gap-2">
-                                         <Checkbox
-                                           checked={issue.owned}
-                                           className="border-2"
-                                           onClick={(e) => {
-                                             e.stopPropagation();
-                                             toggleIssueOwned(collection.id, issue.id);
-                                           }}
-                                         />
-                                         <span className="text-sm font-bold text-foreground">
-                                           {issue.number}
-                                         </span>
-                                       </div>
-                                       {issue.conditionRating && (
-                                         <div className="flex gap-0.5 ml-1">
-                                           {[1, 2, 3, 4, 5].map((rating) => (
-                                             <Star
-                                               key={rating}
-                                               className={`h-3 w-3 ${
-                                                 rating <= issue.conditionRating!
-                                                   ? "fill-yellow-400 text-yellow-400"
-                                                   : "text-muted-foreground"
-                                               }`}
-                                             />
-                                           ))}
-                                         </div>
-                                       )}
-                                     </div>
+                                <div className={`aspect-[2/3] rounded-lg shadow-md overflow-hidden border-2 ${
+                                  issue.is_owned ? 'border-primary' : 'border-muted'
+                                } transition-all duration-300 group-hover:shadow-comic-hover group-hover:-translate-y-1`}>
+                                  {issue.cover_url ? (
+                                    <img
+                                      src={issue.cover_url}
+                                      alt={`Edição ${issue.issue_number}`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className={`w-full h-full ${issue.cover_color} flex items-center justify-center`}>
+                                      <span className="text-white font-black text-lg">{issue.issue_number}</span>
+                                    </div>
+                                  )}
+                                  <div className="absolute top-2 left-2 bg-background/90 rounded p-1" onClick={(e) => e.stopPropagation()}>
+                                    <Checkbox
+                                      checked={issue.is_owned}
+                                      onCheckedChange={() => toggleIssueOwned(collection.id, issue.id)}
+                                      className="h-5 w-5"
+                                    />
                                   </div>
+                                  {issue.condition_rating && issue.is_owned && (
+                                    <div className="absolute bottom-2 left-2 bg-background/90 rounded px-2 py-1 flex items-center gap-1">
+                                      <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+                                      <span className="text-xs font-bold">{issue.condition_rating}</span>
+                                    </div>
+                                  )}
                                 </div>
-                              ))}
-                            </div>
-                          </>
+                                <p className="text-xs text-center mt-1 font-bold text-foreground truncate">
+                                  {issue.issue_number}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </AccordionContent>
                     </AccordionItem>
@@ -692,143 +848,118 @@ const Colecao = () => {
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black">
-              {selectedCollection?.title} - Edição {selectedIssue?.number}
+              {selectedCollection?.title} - {selectedIssue?.issue_number}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid md:grid-cols-2 gap-6 pb-4">
-            {/* Left side - Cover */}
-            <div className="space-y-4">
-              <div className="relative mx-auto max-w-sm">
-                {selectedIssue?.coverUrl ? (
-                  <img
-                    src={selectedIssue.coverUrl}
-                    alt={selectedIssue.number}
-                    className="w-full aspect-[2/3] object-cover rounded-lg shadow-comic"
-                    onError={(e) => {
-                      console.error('Erro ao carregar imagem:', selectedIssue.coverUrl);
-                      const target = e.currentTarget;
-                      target.style.display = 'none';
-                      const fallback = target.nextElementSibling as HTMLElement;
-                      if (fallback) {
-                        fallback.classList.remove('hidden');
-                      }
-                    }}
-                  />
-                ) : null}
-                <div 
-                  className={`w-full aspect-[2/3] ${selectedIssue?.coverColor} rounded-lg shadow-comic flex items-center justify-center ${selectedIssue?.coverUrl ? 'hidden' : ''}`}
-                >
-                  <span className="text-white text-6xl font-black drop-shadow-lg">
-                    {selectedIssue?.number}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center justify-center gap-3">
-                <Checkbox
-                  checked={selectedIssue?.owned}
-                  onCheckedChange={() => {
-                    if (selectedCollection && selectedIssue) {
-                      toggleIssueOwned(selectedCollection.id, selectedIssue.id);
-                      setSelectedIssue({ ...selectedIssue, owned: !selectedIssue.owned });
-                    }
-                  }}
-                  className="border-2 h-5 w-5"
+          <div className="space-y-6">
+            <div className="relative">
+              <Carousel className="w-full max-w-2xl mx-auto">
+                <CarouselContent>
+                  <CarouselItem>
+                    {selectedIssue?.cover_url ? (
+                      <img
+                        src={selectedIssue.cover_url}
+                        alt={`Edição ${selectedIssue.issue_number}`}
+                        className="w-full h-auto rounded-lg shadow-comic"
+                      />
+                    ) : (
+                      <div className={`w-full aspect-[2/3] ${selectedIssue?.cover_color} rounded-lg shadow-comic flex items-center justify-center`}>
+                        <span className="text-white font-black text-6xl">{selectedIssue?.issue_number}</span>
+                      </div>
+                    )}
+                  </CarouselItem>
+                </CarouselContent>
+                <CarouselPrevious 
+                  onClick={() => navigateIssue('prev')}
+                  disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === 0}
                 />
-                <span className="text-lg font-bold text-foreground">
-                  {selectedIssue?.owned ? "✓ Tenho esta edição" : "Não tenho esta edição"}
-                </span>
+                <CarouselNext 
+                  onClick={() => navigateIssue('next')}
+                  disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === selectedCollection.issues.length - 1}
+                />
+              </Carousel>
+              
+              <div className="absolute top-4 left-4 flex gap-2">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => navigateIssue('prev')}
+                  disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === 0}
+                  className="bg-background/90"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => navigateIssue('next')}
+                  disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === selectedCollection.issues.length - 1}
+                  className="bg-background/90"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
 
-            {/* Right side - Information */}
-            <div className="space-y-6">
+            {selectedIssue?.name && (
               <div>
-                <h4 className="font-bold text-muted-foreground text-sm mb-2">Coleção:</h4>
-                <p className="text-xl font-bold text-foreground">{selectedCollection?.title}</p>
-                <p className="text-sm text-muted-foreground">{selectedCollection?.publisher}</p>
+                <h3 className="font-bold text-lg mb-2">Nome da Edição:</h3>
+                <p className="text-muted-foreground">{selectedIssue.name}</p>
               </div>
+            )}
 
-              <div>
-                <h4 className="font-bold text-muted-foreground text-sm mb-2">Edição:</h4>
-                <p className="text-lg font-bold text-foreground">{selectedIssue?.number}</p>
+            <div>
+              <h3 className="font-bold text-lg mb-3">Status:</h3>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="owned-status"
+                  checked={selectedIssue?.is_owned}
+                  onCheckedChange={() => {
+                    if (selectedCollection && selectedIssue) {
+                      toggleIssueOwned(selectedCollection.id, selectedIssue.id);
+                    }
+                  }}
+                  className="h-6 w-6"
+                />
+                <label
+                  htmlFor="owned-status"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Eu possuo esta edição
+                </label>
               </div>
+            </div>
 
-              {selectedIssue?.name && (
-                <div>
-                  <h4 className="font-bold text-muted-foreground text-sm mb-2">Título:</h4>
-                  <p className="text-foreground">{selectedIssue.name}</p>
-                </div>
-              )}
-
+            {selectedIssue?.is_owned && (
               <div>
-                <h4 className="font-bold text-muted-foreground text-sm mb-2">Status:</h4>
-                <p className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${
-                  selectedIssue?.owned 
-                    ? "bg-primary text-primary-foreground" 
-                    : "bg-muted text-muted-foreground"
-                }`}>
-                  {selectedIssue?.owned ? "✓ Tenho" : "Não tenho"}
-                </p>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-muted-foreground text-sm mb-2">Estado de Conservação:</h4>
-                <div className="flex gap-1">
+                <h3 className="font-bold text-lg mb-3">Avaliação de Conservação:</h3>
+                <div className="flex gap-2">
                   {[1, 2, 3, 4, 5].map((rating) => (
-                    <button
+                    <Button
                       key={rating}
+                      variant={selectedIssue.condition_rating === rating ? "default" : "outline"}
+                      size="lg"
                       onClick={() => {
                         if (selectedCollection && selectedIssue) {
                           updateConditionRating(selectedCollection.id, selectedIssue.id, rating);
                         }
                       }}
-                      className="transition-colors hover:scale-110 transform duration-200"
+                      className="flex items-center gap-2"
                     >
-                      <Star
-                        className={`h-8 w-8 ${
-                          selectedIssue?.conditionRating && rating <= selectedIssue.conditionRating
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-muted-foreground"
-                        }`}
-                      />
-                    </button>
+                      <Star className={`h-5 w-5 ${
+                        selectedIssue.condition_rating === rating 
+                          ? "fill-current" 
+                          : ""
+                      }`} />
+                      {rating}
+                    </Button>
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  {selectedIssue?.conditionRating 
-                    ? `Avaliação: ${selectedIssue.conditionRating}/5`
-                    : "Clique nas estrelas para avaliar"
-                  }
+                  1 = Muito Ruim | 2 = Ruim | 3 = Regular | 4 = Boa | 5 = Excelente
                 </p>
               </div>
-
-              {/* Navigation */}
-              <div className="pt-4 border-t">
-                <h4 className="font-bold text-muted-foreground text-sm mb-3">Navegar:</h4>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigateIssue('prev')}
-                    disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === 0}
-                    className="flex-1"
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-2" />
-                    Anterior
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigateIssue('next')}
-                    disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === selectedCollection.issues.length - 1}
-                    className="flex-1"
-                  >
-                    Próxima
-                    <ChevronRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

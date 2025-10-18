@@ -1,39 +1,56 @@
 import Navigation from "@/components/Navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Lightbulb } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Gavel, Clock } from "lucide-react";
 
-const curiosities = [
+const auctions = [
   {
-    title: "Superman quase se chamou 'Super-Man'",
-    description: "Nos primeiros esboços de Jerry Siegel e Joe Shuster, o herói era escrito como 'Super-Man' (com hífen). O nome foi simplificado para 'Superman' quando foi publicado pela primeira vez em Action Comics #1 em 1938.",
+    title: "Amazing Spider-Man #1 (1963)",
+    publisher: "Marvel Comics",
+    currentBid: "R$ 125.000",
+    endDate: "2 dias",
+    image: "https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?w=400&h=600&fit=crop",
+    condition: "9.0 VF/NM",
   },
   {
-    title: "A primeira HQ custava 10 centavos",
-    description: "Action Comics #1, que introduziu o Superman, custava apenas 10 centavos em 1938. Hoje, uma cópia em bom estado pode valer milhões de dólares!",
+    title: "Batman #1 (1940)",
+    publisher: "DC Comics",
+    currentBid: "R$ 85.000",
+    endDate: "5 dias",
+    image: "https://images.unsplash.com/photo-1608889476561-6242cfdbf622?w=400&h=600&fit=crop",
+    condition: "8.5 VF+",
   },
   {
-    title: "Stan Lee criou os X-Men por preguiça",
-    description: "Stan Lee estava cansado de criar origens elaboradas para super-poderes. Então criou os mutantes, que simplesmente nasciam com seus poderes. Foi assim que surgiram os X-Men!",
+    title: "X-Men #1 (1963)",
+    publisher: "Marvel Comics",
+    currentBid: "R$ 67.500",
+    endDate: "3 dias",
+    image: "https://images.unsplash.com/photo-1612036782143-e28a6f46e69f?w=400&h=600&fit=crop",
+    condition: "9.2 NM-",
   },
   {
-    title: "Batman foi quase cancelado",
-    description: "Nos anos 1960, Batman estava perdendo popularidade até que a série de TV com Adam West se tornou um fenômeno. As vendas das HQs dispararam e salvaram o personagem.",
+    title: "Action Comics #252 (1959)",
+    publisher: "DC Comics",
+    currentBid: "R$ 45.000",
+    endDate: "1 dia",
+    image: "https://images.unsplash.com/photo-1608889825103-eb5ed706fc64?w=400&h=600&fit=crop",
+    condition: "8.0 VF",
   },
   {
-    title: "O Código de Ética das HQs",
-    description: "Em 1954, foi criado o Comics Code Authority, que censurava conteúdo considerado inapropriado. Isso mudou drasticamente o tom dos quadrinhos por décadas, eliminando histórias de horror e crime.",
+    title: "Fantastic Four #1 (1961)",
+    publisher: "Marvel Comics",
+    currentBid: "R$ 95.000",
+    endDate: "4 dias",
+    image: "https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?w=400&h=600&fit=crop",
+    condition: "9.4 NM",
   },
   {
-    title: "A primeira graphic novel",
-    description: "Em 1978, 'A Contract with God' de Will Eisner foi considerada a primeira graphic novel. Eisner inclusive popularizou o termo para diferenciar obras mais maduras dos comic books tradicionais.",
-  },
-  {
-    title: "Wolverine era para ser um vilão",
-    description: "Wolverine foi originalmente criado para ser um vilão recorrente do Hulk. Sua primeira aparição foi em 'The Incredible Hulk #180' em 1974, antes de se juntar aos X-Men.",
-  },
-  {
-    title: "O maior colecionador do mundo",
-    description: "Bob Bretall detém o Recorde Mundial do Guinness pela maior coleção de quadrinhos, com mais de 100.000 exemplares! Ele começou sua coleção em 1970.",
+    title: "Detective Comics #27 Reprint",
+    publisher: "DC Comics",
+    currentBid: "R$ 12.500",
+    endDate: "6 dias",
+    image: "https://images.unsplash.com/photo-1608889825205-eebdb9fc5806?w=400&h=600&fit=crop",
+    condition: "7.5 VF-",
   },
 ];
 
@@ -45,32 +62,50 @@ const Curiosidades = () => {
       <main className="container mx-auto px-4 py-12">
         <div className="text-center mb-12 animate-slide-in">
           <div className="inline-flex items-center justify-center p-3 bg-accent rounded-full mb-4 shadow-comic">
-            <Lightbulb className="h-8 w-8 text-accent-foreground" />
+            <Gavel className="h-8 w-8 text-accent-foreground" />
           </div>
           <h1 className="text-5xl md:text-6xl font-black mb-4 text-foreground">
-            CURIOSIDADES
+            LEILÕES
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Descubra fatos fascinantes sobre o mundo dos quadrinhos!
+            Participe dos leilões de quadrinhos raros e valiosos!
           </p>
         </div>
         
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto">
-          {curiosities.map((curiosity, index) => (
+          {auctions.map((auction, index) => (
             <Card 
               key={index} 
-              className="shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-1 bg-gradient-card border-2"
+              className="shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-1 bg-gradient-card border-2 overflow-hidden"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
+              <div className="aspect-[2/3] overflow-hidden">
+                <img 
+                  src={auction.image} 
+                  alt={auction.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
               <CardHeader>
-                <CardTitle className="text-primary font-black text-xl">
-                  {curiosity.title}
-                </CardTitle>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-primary font-black text-lg leading-tight">
+                    {auction.title}
+                  </CardTitle>
+                  <Badge variant="secondary" className="shrink-0">
+                    {auction.condition}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{auction.publisher}</p>
               </CardHeader>
-              <CardContent>
-                <CardDescription className="text-base text-foreground/80">
-                  {curiosity.description}
-                </CardDescription>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Lance Atual:</span>
+                  <span className="text-xl font-black text-primary">{auction.currentBid}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>Termina em {auction.endDate}</span>
+                </div>
               </CardContent>
             </Card>
           ))}

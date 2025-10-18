@@ -36,7 +36,7 @@ const Navigation = () => {
                   ? "bg-primary text-primary-foreground" 
                   : "bg-secondary text-secondary-foreground hover:bg-secondary/90"
               )}>
-                Curiosidades
+                Leilões
               </button>
             </Link>
           </div>
