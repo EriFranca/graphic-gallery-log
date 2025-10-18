@@ -379,7 +379,7 @@ const Colecao = () => {
         issues: issuesData,
       };
       
-      setCollections([...collections, newCollection]);
+      setCollections([...collections, newCollection].sort((a, b) => a.title.localeCompare(b.title)));
       toast.success(`${result.title} adicionado com ${issuesData.length} edições!`);
       setSearchResults([]);
       setScrapingQuery("");
