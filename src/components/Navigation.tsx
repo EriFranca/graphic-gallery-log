@@ -15,7 +15,7 @@ const Navigation = () => {
             <div className="p-2 bg-primary rounded-lg shadow-comic group-hover:shadow-comic-hover transition-all duration-300">
               <Book className="h-6 w-6 text-primary-foreground" />
             </div>
-            <span className="text-2xl font-black text-foreground">COMIC VAULT</span>
+            <span className="text-2xl font-black text-foreground">Cofre dos Quadrinhos</span>
           </Link>
           
           <div className="flex gap-2">
