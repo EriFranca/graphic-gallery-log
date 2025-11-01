@@ -1,1 +1,4 @@
 project_id = "kmprskpchutesxhdhgqb"
+
+[functions.search-metron]
+verify_jwt = false

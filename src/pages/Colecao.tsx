@@ -68,6 +68,32 @@ interface ComicVineResult {
   apiUrl: string;
 }
 
+interface MetronResult {
+  title: string;
+  publisher: string;
+  year: string;
+  issueCount: number;
+  coverUrl: string | null;
+  description: string;
+  link: string;
+  seriesId: number;
+}
+
+// Alphanumeric sort function for issue numbers
+const sortIssuesAlphanumeric = (issues: Issue[]) => {
+  return [...issues].sort((a, b) => {
+    const aNum = a.issue_number.replace(/[^\d.]/g, '');
+    const bNum = b.issue_number.replace(/[^\d.]/g, '');
+    const aVal = parseFloat(aNum) || 0;
+    const bVal = parseFloat(bNum) || 0;
+    
+    if (aVal !== bVal) {
+      return aVal - bVal;
+    }
+    return a.issue_number.localeCompare(b.issue_number);
+  });
+};
+
 const generateCoverColor = () => {
   const colors = [
     "bg-gradient-to-br from-red-500 to-red-700",
@@ -90,8 +116,11 @@ const Colecao = () => {
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [newIssueNumber, setNewIssueNumber] = useState("");
   const [scrapingQuery, setScrapingQuery] = useState("");
+  const [metronQuery, setMetronQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isMetronLoading, setIsMetronLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<ComicVineResult[]>([]);
+  const [metronResults, setMetronResults] = useState<MetronResult[]>([]);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -138,8 +167,7 @@ const Colecao = () => {
             const { data: issuesData, error: issuesError } = await supabase
               .from('issues')
               .select('*')
-              .eq('collection_id', collection.id)
-              .order('issue_number');
+              .eq('collection_id', collection.id);
 
             if (issuesError) throw issuesError;
 
@@ -148,7 +176,7 @@ const Colecao = () => {
               title: collection.title,
               publisher: collection.publisher || "Desconhecido",
               cover_url: collection.cover_url,
-              issues: issuesData || [],
+              issues: sortIssuesAlphanumeric(issuesData || []),
             };
           })
         );
@@ -184,8 +212,10 @@ const Colecao = () => {
         if (collection.id === collectionId) {
           return {
             ...collection,
-            issues: collection.issues.map(issue =>
-              issue.id === issueId ? { ...issue, is_owned: !issue.is_owned } : issue
+            issues: sortIssuesAlphanumeric(
+              collection.issues.map(issue =>
+                issue.id === issueId ? { ...issue, is_owned: !issue.is_owned } : issue
+              )
             ),
           };
         }
@@ -260,7 +290,7 @@ const Colecao = () => {
           if (collection.id === selectedCollectionId) {
             return {
               ...collection,
-              issues: [...collection.issues, data],
+              issues: sortIssuesAlphanumeric([...collection.issues, data]),
             };
           }
           return collection;
@@ -302,6 +332,122 @@ const Colecao = () => {
       setSearchResults([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const searchMetron = async () => {
+    if (!metronQuery.trim()) {
+      toast.error("Digite um título para buscar!");
+      return;
+    }
+
+    setIsMetronLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('search-metron', {
+        body: { searchQuery: metronQuery }
+      });
+
+      if (error) throw error;
+
+      if (data.success && data.data.length > 0) {
+        setMetronResults(data.data);
+        toast.success(`${data.data.length} resultados encontrados no Metron!`);
+      } else {
+        setMetronResults([]);
+        toast.warning("Nenhum resultado encontrado");
+      }
+    } catch (error) {
+      console.error('Erro ao buscar:', error);
+      toast.error("Erro ao buscar no Metron");
+      setMetronResults([]);
+    } finally {
+      setIsMetronLoading(false);
+    }
+  };
+
+  const addCollectionFromMetron = async (result: MetronResult) => {
+    if (!session?.user) {
+      toast.error("Você precisa estar logado!");
+      return;
+    }
+
+    setIsMetronLoading(true);
+    toast.info("Buscando capas das edições...");
+    
+    try {
+      // Create collection first
+      const { data: collectionData, error: collectionError } = await supabase
+        .from('collections')
+        .insert({
+          title: result.title,
+          publisher: result.publisher,
+          user_id: session.user.id,
+          cover_url: result.coverUrl,
+        })
+        .select()
+        .single();
+
+      if (collectionError) throw collectionError;
+
+      // Fetch issues with covers
+      const { data, error } = await supabase.functions.invoke('search-metron', {
+        body: { seriesId: result.seriesId }
+      });
+
+      if (error) throw error;
+
+      let issuesData: Issue[] = [];
+      
+      if (data.success && data.data.length > 0) {
+        // Insert issues into database
+        const issuesToInsert = data.data.map((issue: any) => ({
+          collection_id: collectionData.id,
+          issue_number: issue.number,
+          name: issue.name,
+          is_owned: false,
+          cover_color: generateCoverColor(),
+          cover_url: issue.coverUrl,
+        }));
+
+        const { data: insertedIssues, error: issuesError } = await supabase
+          .from('issues')
+          .insert(issuesToInsert)
+          .select();
+
+        if (issuesError) throw issuesError;
+        issuesData = sortIssuesAlphanumeric(insertedIssues || []);
+      } else {
+        // Fallback to numbered issues without covers
+        const issuesToInsert = Array.from({ length: result.issueCount }, (_, i) => ({
+          collection_id: collectionData.id,
+          issue_number: `#${i + 1}`,
+          is_owned: false,
+          cover_color: generateCoverColor(),
+        }));
+
+        const { data: insertedIssues, error: issuesError } = await supabase
+          .from('issues')
+          .insert(issuesToInsert)
+          .select();
+
+        if (issuesError) throw issuesError;
+        issuesData = sortIssuesAlphanumeric(insertedIssues || []);
+      }
+
+      const newCollection: Collection = {
+        ...collectionData,
+        issues: issuesData,
+      };
+      
+      setCollections([...collections, newCollection].sort((a, b) => a.title.localeCompare(b.title)));
+      toast.success(`${result.title} adicionado com ${issuesData.length} edições!`);
+      setMetronResults([]);
+      setMetronQuery("");
+    } catch (error) {
+      console.error('Erro ao adicionar coleção:', error);
+      toast.error("Erro ao adicionar coleção");
+    } finally {
+      setIsMetronLoading(false);
     }
   };
 
@@ -355,7 +501,7 @@ const Colecao = () => {
           .select();
 
         if (issuesError) throw issuesError;
-        issuesData = insertedIssues || [];
+        issuesData = sortIssuesAlphanumeric(insertedIssues || []);
       } else {
         // Fallback to numbered issues without covers
         const issuesToInsert = Array.from({ length: result.issueCount }, (_, i) => ({
@@ -371,7 +517,7 @@ const Colecao = () => {
           .select();
 
         if (issuesError) throw issuesError;
-        issuesData = insertedIssues || [];
+        issuesData = sortIssuesAlphanumeric(insertedIssues || []);
       }
 
       const newCollection: Collection = {
@@ -425,7 +571,9 @@ const Colecao = () => {
         if (collection.id === collectionId) {
           return {
             ...collection,
-            issues: collection.issues.map(issue => ({ ...issue, is_owned: ownedStatus })),
+            issues: sortIssuesAlphanumeric(
+              collection.issues.map(issue => ({ ...issue, is_owned: ownedStatus }))
+            ),
           };
         }
         return collection;
@@ -474,8 +622,10 @@ const Colecao = () => {
         if (collection.id === collectionId) {
           return {
             ...collection,
-            issues: collection.issues.map(issue =>
-              issue.id === issueId ? { ...issue, condition_rating: rating } : issue
+            issues: sortIssuesAlphanumeric(
+              collection.issues.map(issue =>
+                issue.id === issueId ? { ...issue, condition_rating: rating } : issue
+              )
             ),
           };
         }
@@ -588,6 +738,69 @@ const Colecao = () => {
                         size="sm"
                         onClick={() => addCollectionFromComicVine(result)}
                         disabled={isLoading}
+                        className="shadow-comic"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Adicionar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-comic border-2 bg-gradient-to-r from-secondary/10 to-primary/10">
+            <CardHeader>
+              <CardTitle className="text-xl font-black text-foreground flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                Buscar no Metron
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-3">
+                <Input
+                  placeholder="Digite o título da coleção..."
+                  value={metronQuery}
+                  onChange={(e) => setMetronQuery(e.target.value)}
+                  className="border-2 flex-1"
+                  onKeyDown={(e) => e.key === 'Enter' && searchMetron()}
+                />
+                <Button 
+                  onClick={searchMetron}
+                  disabled={isMetronLoading}
+                  className="shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5"
+                >
+                  {isMetronLoading ? "Buscando..." : "Buscar"}
+                </Button>
+              </div>
+
+              {metronResults.length > 0 && (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  <p className="text-sm font-bold text-muted-foreground">
+                    {metronResults.length} resultados encontrados:
+                  </p>
+                  {metronResults.map((result, index) => (
+                    <div
+                      key={index}
+                      className="flex gap-3 p-3 border-2 rounded-lg hover:bg-accent/50 transition-colors"
+                    >
+                      {result.coverUrl && (
+                        <img
+                          src={result.coverUrl}
+                          alt={result.title}
+                          className="w-16 h-24 object-cover rounded shadow-md"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <h3 className="font-bold text-foreground">{result.title}</h3>
+                        <p className="text-sm text-muted-foreground">{result.publisher} ({result.year})</p>
+                        <p className="text-xs text-muted-foreground">{result.issueCount} edições</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => addCollectionFromMetron(result)}
+                        disabled={isMetronLoading}
                         className="shadow-comic"
                       >
                         <Plus className="h-4 w-4 mr-1" />
