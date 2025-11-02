@@ -1,4 +1,4 @@
 project_id = "kmprskpchutesxhdhgqb"
 
-[functions.search-metron]
+[functions.search-comic-vine]
 verify_jwt = false

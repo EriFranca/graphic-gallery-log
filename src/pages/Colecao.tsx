@@ -68,16 +68,6 @@ interface ComicVineResult {
   apiUrl: string;
 }
 
-interface MetronResult {
-  title: string;
-  publisher: string;
-  year: string;
-  issueCount: number;
-  coverUrl: string | null;
-  description: string;
-  link: string;
-  seriesId: number;
-}
 
 // Alphanumeric sort function for issue numbers
 const sortIssuesAlphanumeric = (issues: Issue[]) => {
@@ -113,14 +103,13 @@ const Colecao = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [newCollectionTitle, setNewCollectionTitle] = useState("");
   const [newCollectionPublisher, setNewCollectionPublisher] = useState("");
+  const [newCollectionYear, setNewCollectionYear] = useState("");
+  const [newCollectionCoverUrl, setNewCollectionCoverUrl] = useState("");
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [newIssueNumber, setNewIssueNumber] = useState("");
   const [scrapingQuery, setScrapingQuery] = useState("");
-  const [metronQuery, setMetronQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isMetronLoading, setIsMetronLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<ComicVineResult[]>([]);
-  const [metronResults, setMetronResults] = useState<MetronResult[]>([]);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -246,6 +235,8 @@ const Colecao = () => {
         .insert({
           title: newCollectionTitle,
           publisher: newCollectionPublisher || "Desconhecido",
+          start_year: newCollectionYear ? parseInt(newCollectionYear) : null,
+          cover_url: newCollectionCoverUrl || null,
           user_id: session.user.id,
         })
         .select()
@@ -257,11 +248,44 @@ const Colecao = () => {
         setCollections([...collections, { ...data, issues: [] }]);
         setNewCollectionTitle("");
         setNewCollectionPublisher("");
+        setNewCollectionYear("");
+        setNewCollectionCoverUrl("");
         toast.success("Coleção adicionada!");
       }
     } catch (error) {
       console.error('Error adding collection:', error);
       toast.error("Erro ao adicionar coleção");
+    }
+  };
+
+  const populateFromComicVine = async () => {
+    if (!newCollectionTitle.trim()) {
+      toast.error("Digite um título primeiro!");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('search-comic-vine', {
+        body: { searchQuery: newCollectionTitle }
+      });
+
+      if (error) throw error;
+
+      if (data.success && data.data.length > 0) {
+        const firstResult = data.data[0];
+        setNewCollectionPublisher(firstResult.publisher);
+        setNewCollectionYear(firstResult.year);
+        setNewCollectionCoverUrl(firstResult.coverUrl);
+        toast.success("Dados preenchidos do Comic Vine!");
+      } else {
+        toast.warning("Nenhum resultado encontrado no Comic Vine");
+      }
+    } catch (error) {
+      console.error('Erro ao buscar:', error);
+      toast.error("Erro ao buscar no Comic Vine");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -335,121 +359,6 @@ const Colecao = () => {
     }
   };
 
-  const searchMetron = async () => {
-    if (!metronQuery.trim()) {
-      toast.error("Digite um título para buscar!");
-      return;
-    }
-
-    setIsMetronLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('search-metron', {
-        body: { searchQuery: metronQuery }
-      });
-
-      if (error) throw error;
-
-      if (data.success && data.data.length > 0) {
-        setMetronResults(data.data);
-        toast.success(`${data.data.length} resultados encontrados no Metron!`);
-      } else {
-        setMetronResults([]);
-        toast.warning("Nenhum resultado encontrado");
-      }
-    } catch (error) {
-      console.error('Erro ao buscar:', error);
-      toast.error("Erro ao buscar no Metron");
-      setMetronResults([]);
-    } finally {
-      setIsMetronLoading(false);
-    }
-  };
-
-  const addCollectionFromMetron = async (result: MetronResult) => {
-    if (!session?.user) {
-      toast.error("Você precisa estar logado!");
-      return;
-    }
-
-    setIsMetronLoading(true);
-    toast.info("Buscando capas das edições...");
-    
-    try {
-      // Create collection first
-      const { data: collectionData, error: collectionError } = await supabase
-        .from('collections')
-        .insert({
-          title: result.title,
-          publisher: result.publisher,
-          user_id: session.user.id,
-          cover_url: result.coverUrl,
-        })
-        .select()
-        .single();
-
-      if (collectionError) throw collectionError;
-
-      // Fetch issues with covers
-      const { data, error } = await supabase.functions.invoke('search-metron', {
-        body: { seriesId: result.seriesId }
-      });
-
-      if (error) throw error;
-
-      let issuesData: Issue[] = [];
-      
-      if (data.success && data.data.length > 0) {
-        // Insert issues into database
-        const issuesToInsert = data.data.map((issue: any) => ({
-          collection_id: collectionData.id,
-          issue_number: issue.number,
-          name: issue.name,
-          is_owned: false,
-          cover_color: generateCoverColor(),
-          cover_url: issue.coverUrl,
-        }));
-
-        const { data: insertedIssues, error: issuesError } = await supabase
-          .from('issues')
-          .insert(issuesToInsert)
-          .select();
-
-        if (issuesError) throw issuesError;
-        issuesData = sortIssuesAlphanumeric(insertedIssues || []);
-      } else {
-        // Fallback to numbered issues without covers
-        const issuesToInsert = Array.from({ length: result.issueCount }, (_, i) => ({
-          collection_id: collectionData.id,
-          issue_number: `#${i + 1}`,
-          is_owned: false,
-          cover_color: generateCoverColor(),
-        }));
-
-        const { data: insertedIssues, error: issuesError } = await supabase
-          .from('issues')
-          .insert(issuesToInsert)
-          .select();
-
-        if (issuesError) throw issuesError;
-        issuesData = sortIssuesAlphanumeric(insertedIssues || []);
-      }
-
-      const newCollection: Collection = {
-        ...collectionData,
-        issues: issuesData,
-      };
-      
-      setCollections([...collections, newCollection].sort((a, b) => a.title.localeCompare(b.title)));
-      toast.success(`${result.title} adicionado com ${issuesData.length} edições!`);
-      setMetronResults([]);
-      setMetronQuery("");
-    } catch (error) {
-      console.error('Erro ao adicionar coleção:', error);
-      toast.error("Erro ao adicionar coleção");
-    } finally {
-      setIsMetronLoading(false);
-    }
-  };
 
   const addCollectionFromComicVine = async (result: ComicVineResult) => {
     if (!session?.user) {
@@ -750,96 +659,72 @@ const Colecao = () => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-comic border-2 bg-gradient-to-r from-secondary/10 to-primary/10">
-            <CardHeader>
-              <CardTitle className="text-xl font-black text-foreground flex items-center gap-2">
-                <Download className="h-5 w-5" />
-                Buscar no Metron
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-3">
-                <Input
-                  placeholder="Digite o título da coleção..."
-                  value={metronQuery}
-                  onChange={(e) => setMetronQuery(e.target.value)}
-                  className="border-2 flex-1"
-                  onKeyDown={(e) => e.key === 'Enter' && searchMetron()}
-                />
-                <Button 
-                  onClick={searchMetron}
-                  disabled={isMetronLoading}
-                  className="shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5"
-                >
-                  {isMetronLoading ? "Buscando..." : "Buscar"}
-                </Button>
-              </div>
-
-              {metronResults.length > 0 && (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  <p className="text-sm font-bold text-muted-foreground">
-                    {metronResults.length} resultados encontrados:
-                  </p>
-                  {metronResults.map((result, index) => (
-                    <div
-                      key={index}
-                      className="flex gap-3 p-3 border-2 rounded-lg hover:bg-accent/50 transition-colors"
-                    >
-                      {result.coverUrl && (
-                        <img
-                          src={result.coverUrl}
-                          alt={result.title}
-                          className="w-16 h-24 object-cover rounded shadow-md"
-                        />
-                      )}
-                      <div className="flex-1">
-                        <h3 className="font-bold text-foreground">{result.title}</h3>
-                        <p className="text-sm text-muted-foreground">{result.publisher} ({result.year})</p>
-                        <p className="text-xs text-muted-foreground">{result.issueCount} edições</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => addCollectionFromMetron(result)}
-                        disabled={isMetronLoading}
-                        className="shadow-comic"
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Adicionar
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
           <Card className="shadow-comic border-2">
             <CardHeader>
               <CardTitle className="text-xl font-black text-foreground flex items-center gap-2">
                 <Plus className="h-5 w-5" />
-                Adicionar Coleção Manualmente
+                Cadastrar Coleção Manualmente
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4">
                 <Input
-                  placeholder="Título da coleção"
+                  placeholder="Título da coleção *"
                   value={newCollectionTitle}
                   onChange={(e) => setNewCollectionTitle(e.target.value)}
                   className="border-2"
                 />
-                <Input
-                  placeholder="Editora (opcional)"
-                  value={newCollectionPublisher}
-                  onChange={(e) => setNewCollectionPublisher(e.target.value)}
-                  className="border-2"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Editora"
+                    value={newCollectionPublisher}
+                    onChange={(e) => setNewCollectionPublisher(e.target.value)}
+                    className="border-2 flex-1"
+                  />
+                  <Button
+                    onClick={populateFromComicVine}
+                    disabled={isLoading}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <Search className="h-4 w-4" />
+                    Buscar Comic Vine
+                  </Button>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    placeholder="Ano (ex: 1985)"
+                    value={newCollectionYear}
+                    onChange={(e) => setNewCollectionYear(e.target.value)}
+                    className="border-2"
+                    type="number"
+                  />
+                  <Input
+                    placeholder="URL da capa"
+                    value={newCollectionCoverUrl}
+                    onChange={(e) => setNewCollectionCoverUrl(e.target.value)}
+                    className="border-2"
+                  />
+                </div>
+                {newCollectionCoverUrl && (
+                  <div className="flex justify-center">
+                    <img
+                      src={newCollectionCoverUrl}
+                      alt="Preview"
+                      className="w-24 h-32 object-cover rounded shadow-md"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
               </div>
               <Button 
                 onClick={addCollection}
                 className="w-full shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5"
               >
-                <Plus className="mr-2 h-4 w-4" /> Adicionar Coleção
+                <Plus className="mr-2 h-4 w-4" /> Cadastrar Coleção
               </Button>
             </CardContent>
           </Card>
