@@ -571,11 +571,11 @@ const Colecao = () => {
     <div className="min-h-screen bg-background">
       <Navigation />
       
-      <main className="container mx-auto px-4 py-12">
-        <div className="text-center mb-12 animate-slide-in">
-          <div className="flex justify-center items-center gap-4 mb-4">
-            <div className="inline-flex items-center justify-center p-3 bg-primary rounded-full shadow-comic">
-              <Library className="h-8 w-8 text-primary-foreground" />
+      <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-12">
+        <div className="text-center mb-8 sm:mb-12 animate-slide-in">
+          <div className="flex justify-center items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+            <div className="inline-flex items-center justify-center p-2 sm:p-3 bg-primary rounded-full shadow-comic">
+              <Library className="h-6 w-6 sm:h-8 sm:w-8 text-primary-foreground" />
             </div>
             <Button
               variant="outline"
@@ -584,13 +584,13 @@ const Colecao = () => {
               className="gap-2"
             >
               <LogOut className="h-4 w-4" />
-              Sair
+              <span className="hidden sm:inline">Sair</span>
             </Button>
           </div>
-          <h1 className="text-5xl md:text-6xl font-black mb-4 text-foreground">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black mb-3 sm:mb-4 text-foreground">
             MINHA COLEÇÃO
           </h1>
-          <p className="text-xl text-muted-foreground">
+          <p className="text-base sm:text-xl text-muted-foreground px-4">
             Você possui <span className="text-primary font-bold">{ownedIssues}</span> de <span className="font-bold">{totalIssues}</span> edições
           </p>
         </div>
@@ -604,7 +604,7 @@ const Colecao = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Input
                   placeholder="Digite o título da coleção..."
                   value={scrapingQuery}
@@ -615,7 +615,7 @@ const Colecao = () => {
                 <Button 
                   onClick={searchComicVine}
                   disabled={isLoading}
-                  className="shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5"
+                  className="shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5 w-full sm:w-auto"
                 >
                   {isLoading ? "Buscando..." : "Buscar"}
                 </Button>
@@ -629,25 +629,27 @@ const Colecao = () => {
                   {searchResults.map((result, index) => (
                     <div
                       key={index}
-                      className="flex gap-3 p-3 border-2 rounded-lg hover:bg-accent/50 transition-colors"
+                      className="flex flex-col sm:flex-row gap-3 p-3 border-2 rounded-lg hover:bg-accent/50 transition-colors"
                     >
-                      {result.coverUrl && (
-                        <img
-                          src={result.coverUrl}
-                          alt={result.title}
-                          className="w-16 h-24 object-cover rounded shadow-md"
-                        />
-                      )}
-                      <div className="flex-1">
-                        <h3 className="font-bold text-foreground">{result.title}</h3>
-                        <p className="text-sm text-muted-foreground">{result.publisher} ({result.year})</p>
-                        <p className="text-xs text-muted-foreground">{result.issueCount} edições</p>
+                      <div className="flex gap-3 flex-1">
+                        {result.coverUrl && (
+                          <img
+                            src={result.coverUrl}
+                            alt={result.title}
+                            className="w-16 h-24 object-cover rounded shadow-md flex-shrink-0"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-foreground truncate">{result.title}</h3>
+                          <p className="text-sm text-muted-foreground">{result.publisher} ({result.year})</p>
+                          <p className="text-xs text-muted-foreground">{result.issueCount} edições</p>
+                        </div>
                       </div>
                       <Button
                         size="sm"
                         onClick={() => addCollectionFromComicVine(result)}
                         disabled={isLoading}
-                        className="shadow-comic"
+                        className="shadow-comic w-full sm:w-auto"
                       >
                         <Plus className="h-4 w-4 mr-1" />
                         Adicionar
@@ -675,7 +677,7 @@ const Colecao = () => {
                   onChange={(e) => setNewCollectionTitle(e.target.value)}
                   className="border-2"
                 />
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     placeholder="Editora"
                     value={newCollectionPublisher}
@@ -686,13 +688,13 @@ const Colecao = () => {
                     onClick={populateFromComicVine}
                     disabled={isLoading}
                     variant="outline"
-                    className="gap-2"
+                    className="gap-2 w-full sm:w-auto"
                   >
                     <Search className="h-4 w-4" />
-                    Buscar Comic Vine
+                    <span className="sm:inline">Buscar Comic Vine</span>
                   </Button>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <Input
                     placeholder="Ano (ex: 1985)"
                     value={newCollectionYear}
@@ -737,7 +739,7 @@ const Colecao = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <select
                   value={selectedCollectionId}
                   onChange={(e) => setSelectedCollectionId(e.target.value)}
@@ -808,23 +810,23 @@ const Colecao = () => {
                   const hasRatings = collection.issues.some(i => i.is_owned && i.condition_rating);
                   
                   return (
-                    <AccordionItem key={collection.id} value={collection.id} className="border-2 rounded-lg shadow-comic">
-                      <AccordionTrigger className="px-6 hover:no-underline">
-                        <div className="flex items-center justify-between w-full pr-4">
-                          <div className="flex items-center gap-3">
+                     <AccordionItem key={collection.id} value={collection.id} className="border-2 rounded-lg shadow-comic">
+                      <AccordionTrigger className="px-3 sm:px-6 hover:no-underline">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full pr-2 sm:pr-4 gap-3">
+                          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                             {collection.cover_url && (
                               <img
                                 src={collection.cover_url}
                                 alt={collection.title}
-                                className="w-12 h-16 object-cover rounded shadow-md"
+                                className="w-10 h-14 sm:w-12 sm:h-16 object-cover rounded shadow-md flex-shrink-0"
                               />
                             )}
-                            <div className="text-left">
-                              <h3 className="text-lg font-black text-foreground">{collection.title}</h3>
-                              <p className="text-sm text-muted-foreground">{collection.publisher}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-xs font-bold text-primary">
-                                  {ownedCount} de {totalCount} edições
+                            <div className="text-left min-w-0 flex-1">
+                              <h3 className="text-base sm:text-lg font-black text-foreground truncate">{collection.title}</h3>
+                              <p className="text-xs sm:text-sm text-muted-foreground truncate">{collection.publisher}</p>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className="text-xs font-bold text-primary whitespace-nowrap">
+                                  {ownedCount}/{totalCount}
                                 </span>
                                 {hasRatings && (
                                   <div className="flex items-center gap-1">
@@ -837,7 +839,7 @@ const Colecao = () => {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 sm:gap-2 self-end sm:self-auto">
                             <Button
                               variant="outline"
                               size="sm"
@@ -845,9 +847,10 @@ const Colecao = () => {
                                 e.stopPropagation();
                                 toggleAllIssues(collection.id, true);
                               }}
-                              className="mr-2"
+                              className="h-8 w-8 sm:h-9 sm:w-9 p-0"
+                              title="Marcar todas"
                             >
-                              <CheckSquare className="h-4 w-4" />
+                              <CheckSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </Button>
                             <Button
                               variant="outline"
@@ -856,9 +859,10 @@ const Colecao = () => {
                                 e.stopPropagation();
                                 toggleAllIssues(collection.id, false);
                               }}
-                              className="mr-2"
+                              className="h-8 w-8 sm:h-9 sm:w-9 p-0"
+                              title="Desmarcar todas"
                             >
-                              <Square className="h-4 w-4" />
+                              <Square className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </Button>
                             <Button
                               variant="destructive"
@@ -867,15 +871,16 @@ const Colecao = () => {
                                 e.stopPropagation();
                                 setCollectionToDelete(collection.id);
                               }}
-                              className="mr-2"
+                              className="h-8 w-8 sm:h-9 sm:w-9 p-0"
+                              title="Excluir coleção"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </Button>
                           </div>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent 
-                        className="px-6 pb-6 relative"
+                        className="px-3 sm:px-6 pb-4 sm:pb-6 relative"
                         style={{
                           backgroundImage: collection.issues.find(i => i.is_owned)?.cover_url 
                             ? `linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), url(${collection.issues.find(i => i.is_owned)?.cover_url})`
@@ -886,11 +891,11 @@ const Colecao = () => {
                         }}
                       >
                         {collection.issues.length === 0 ? (
-                          <p className="text-center text-muted-foreground py-8">
+                          <p className="text-center text-muted-foreground py-8 text-sm">
                             Nenhuma edição adicionada ainda
                           </p>
                         ) : (
-                          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-4">
+                          <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-4">
                             {collection.issues.map((issue) => (
                               <div
                                 key={issue.id}
@@ -908,24 +913,24 @@ const Colecao = () => {
                                     />
                                   ) : (
                                     <div className={`w-full h-full ${issue.cover_color} flex items-center justify-center`}>
-                                      <span className="text-white font-black text-lg">{issue.issue_number}</span>
+                                      <span className="text-white font-black text-sm sm:text-lg">{issue.issue_number}</span>
                                     </div>
                                   )}
-                                  <div className="absolute top-2 left-2 bg-background/90 rounded p-1" onClick={(e) => e.stopPropagation()}>
+                                  <div className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-background/90 rounded p-0.5 sm:p-1" onClick={(e) => e.stopPropagation()}>
                                     <Checkbox
                                       checked={issue.is_owned}
                                       onCheckedChange={() => toggleIssueOwned(collection.id, issue.id)}
-                                      className="h-5 w-5"
+                                      className="h-4 w-4 sm:h-5 sm:w-5"
                                     />
                                   </div>
                                   {issue.condition_rating && issue.is_owned && (
-                                    <div className="absolute bottom-2 left-2 bg-background/90 rounded px-2 py-1 flex items-center gap-1">
-                                      <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
-                                      <span className="text-xs font-bold">{issue.condition_rating}</span>
+                                    <div className="absolute bottom-1 left-1 sm:bottom-2 sm:left-2 bg-background/90 rounded px-1.5 py-0.5 sm:px-2 sm:py-1 flex items-center gap-0.5 sm:gap-1">
+                                      <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 fill-yellow-500 text-yellow-500" />
+                                      <span className="text-[10px] sm:text-xs font-bold">{issue.condition_rating}</span>
                                     </div>
                                   )}
                                 </div>
-                                <p className="text-xs text-center mt-1 font-bold text-foreground truncate">
+                                <p className="text-[10px] sm:text-xs text-center mt-1 font-bold text-foreground truncate">
                                   {issue.issue_number}
                                 </p>
                               </div>
@@ -943,13 +948,13 @@ const Colecao = () => {
       </main>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black">
+            <DialogTitle className="text-lg sm:text-2xl font-black pr-8">
               {selectedCollection?.title} - {selectedIssue?.issue_number}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="relative">
               <Carousel className="w-full max-w-2xl mx-auto">
                 <CarouselContent>
@@ -962,7 +967,7 @@ const Colecao = () => {
                       />
                     ) : (
                       <div className={`w-full aspect-[2/3] ${selectedIssue?.cover_color} rounded-lg shadow-comic flex items-center justify-center`}>
-                        <span className="text-white font-black text-6xl">{selectedIssue?.issue_number}</span>
+                        <span className="text-white font-black text-4xl sm:text-6xl">{selectedIssue?.issue_number}</span>
                       </div>
                     )}
                   </CarouselItem>
@@ -970,45 +975,49 @@ const Colecao = () => {
                 <CarouselPrevious 
                   onClick={() => navigateIssue('prev')}
                   disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === 0}
+                  className="hidden sm:flex"
                 />
                 <CarouselNext 
                   onClick={() => navigateIssue('next')}
                   disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === selectedCollection.issues.length - 1}
+                  className="hidden sm:flex"
                 />
               </Carousel>
               
-              <div className="absolute top-4 left-4 flex gap-2">
+              <div className="flex sm:hidden justify-center gap-3 mt-4">
                 <Button
-                  size="icon"
+                  size="lg"
                   variant="outline"
                   onClick={() => navigateIssue('prev')}
                   disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === 0}
-                  className="bg-background/90"
+                  className="flex-1 max-w-[120px]"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-5 w-5 mr-1" />
+                  Anterior
                 </Button>
                 <Button
-                  size="icon"
+                  size="lg"
                   variant="outline"
                   onClick={() => navigateIssue('next')}
                   disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === selectedCollection.issues.length - 1}
-                  className="bg-background/90"
+                  className="flex-1 max-w-[120px]"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  Próxima
+                  <ChevronRight className="h-5 w-5 ml-1" />
                 </Button>
               </div>
             </div>
 
             {selectedIssue?.name && (
               <div>
-                <h3 className="font-bold text-lg mb-2">Nome da Edição:</h3>
-                <p className="text-muted-foreground">{selectedIssue.name}</p>
+                <h3 className="font-bold text-base sm:text-lg mb-2">Nome da Edição:</h3>
+                <p className="text-muted-foreground text-sm sm:text-base">{selectedIssue.name}</p>
               </div>
             )}
 
             <div>
-              <h3 className="font-bold text-lg mb-3">Status:</h3>
-              <div className="flex items-center gap-2">
+              <h3 className="font-bold text-base sm:text-lg mb-3">Status:</h3>
+              <div className="flex items-center gap-3">
                 <Checkbox
                   id="owned-status"
                   checked={selectedIssue?.is_owned}
@@ -1017,11 +1026,11 @@ const Colecao = () => {
                       toggleIssueOwned(selectedCollection.id, selectedIssue.id);
                     }
                   }}
-                  className="h-6 w-6"
+                  className="h-6 w-6 sm:h-7 sm:w-7"
                 />
                 <label
                   htmlFor="owned-status"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  className="text-sm sm:text-base font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
                   Eu possuo esta edição
                 </label>
@@ -1030,8 +1039,8 @@ const Colecao = () => {
 
             {selectedIssue?.is_owned && (
               <div>
-                <h3 className="font-bold text-lg mb-3">Avaliação de Conservação:</h3>
-                <div className="flex gap-2">
+                <h3 className="font-bold text-base sm:text-lg mb-3">Avaliação de Conservação:</h3>
+                <div className="flex flex-wrap gap-2">
                   {[1, 2, 3, 4, 5].map((rating) => (
                     <Button
                       key={rating}
@@ -1042,9 +1051,9 @@ const Colecao = () => {
                           updateConditionRating(selectedCollection.id, selectedIssue.id, rating);
                         }
                       }}
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 flex-1 sm:flex-initial min-w-[60px]"
                     >
-                      <Star className={`h-5 w-5 ${
+                      <Star className={`h-4 w-4 sm:h-5 sm:w-5 ${
                         selectedIssue.condition_rating === rating 
                           ? "fill-current" 
                           : ""
@@ -1053,7 +1062,7 @@ const Colecao = () => {
                     </Button>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                   1 = Muito Ruim | 2 = Ruim | 3 = Regular | 4 = Boa | 5 = Excelente
                 </p>
               </div>
