@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Library, BookOpen, Download, Trash2, CheckSquare, Square, ChevronLeft, ChevronRight, Star, LogOut } from "lucide-react";
+import { Plus, Search, Library, BookOpen, Download, Trash2, CheckSquare, Square, ChevronLeft, ChevronRight, Star, LogOut, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -105,6 +105,8 @@ const Colecao = () => {
   const [newCollectionPublisher, setNewCollectionPublisher] = useState("");
   const [newCollectionYear, setNewCollectionYear] = useState("");
   const [newCollectionCoverUrl, setNewCollectionCoverUrl] = useState("");
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string>("");
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [newIssueNumber, setNewIssueNumber] = useState("");
   const [scrapingQuery, setScrapingQuery] = useState("");
@@ -218,6 +220,50 @@ const Colecao = () => {
     }
   };
 
+  const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error("Por favor, selecione uma imagem!");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("A imagem deve ter no máximo 5MB!");
+        return;
+      }
+      setCoverFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCoverPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadCoverImage = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `${session?.user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('comic-covers')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('comic-covers')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error("Erro ao fazer upload da imagem");
+      return null;
+    }
+  };
+
   const addCollection = async () => {
     if (!newCollectionTitle) {
       toast.error("Preencha o título da coleção!");
@@ -230,13 +276,23 @@ const Colecao = () => {
     }
 
     try {
+      let finalCoverUrl = newCollectionCoverUrl;
+
+      // Upload cover file if selected
+      if (coverFile) {
+        const uploadedUrl = await uploadCoverImage(coverFile);
+        if (uploadedUrl) {
+          finalCoverUrl = uploadedUrl;
+        }
+      }
+
       const { data, error } = await supabase
         .from('collections')
         .insert({
           title: newCollectionTitle,
           publisher: newCollectionPublisher || "Desconhecido",
           start_year: newCollectionYear ? parseInt(newCollectionYear) : null,
-          cover_url: newCollectionCoverUrl || null,
+          cover_url: finalCoverUrl || null,
           user_id: session.user.id,
         })
         .select()
@@ -250,6 +306,8 @@ const Colecao = () => {
         setNewCollectionPublisher("");
         setNewCollectionYear("");
         setNewCollectionCoverUrl("");
+        setCoverFile(null);
+        setCoverPreview("");
         toast.success("Coleção adicionada!");
       }
     } catch (error) {
@@ -709,18 +767,46 @@ const Colecao = () => {
                     className="border-2"
                   />
                 </div>
-                {newCollectionCoverUrl && (
-                  <div className="flex justify-center">
-                    <img
-                      src={newCollectionCoverUrl}
-                      alt="Preview"
-                      className="w-24 h-32 object-cover rounded shadow-md"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
+                
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center w-full">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-accent/20 hover:bg-accent/40 transition-colors">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Upload className="h-8 w-8 mb-2 text-muted-foreground" />
+                        <p className="mb-1 text-sm text-muted-foreground font-medium">
+                          <span className="font-bold">Clique para enviar</span> ou arraste a capa
+                        </p>
+                        <p className="text-xs text-muted-foreground">PNG, JPG ou WEBP (máx. 5MB)</p>
+                      </div>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        onChange={handleCoverFileChange}
+                      />
+                    </label>
                   </div>
-                )}
+                  
+                  {(coverPreview || newCollectionCoverUrl) && (
+                    <div className="flex justify-center">
+                      <div className="relative">
+                        <img
+                          src={coverPreview || newCollectionCoverUrl}
+                          alt="Preview"
+                          className="w-32 h-44 object-cover rounded shadow-lg"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        {coverFile && (
+                          <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-full p-1">
+                            <Upload className="h-3 w-3" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <Button 
                 onClick={addCollection}
