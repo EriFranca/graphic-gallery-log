@@ -116,6 +116,9 @@ const Colecao = () => {
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [collectionToDelete, setCollectionToDelete] = useState<string | null>(null);
+  const [issueCoverFile, setIssueCoverFile] = useState<File | null>(null);
+  const [issueCoverPreview, setIssueCoverPreview] = useState<string>("");
+  const [uploadingIssueCover, setUploadingIssueCover] = useState(false);
 
   // Check authentication
   useEffect(() => {
@@ -557,6 +560,75 @@ const Colecao = () => {
     setSelectedIssue(issue);
     setSelectedCollection(collection);
     setIsDialogOpen(true);
+    setIssueCoverFile(null);
+    setIssueCoverPreview("");
+  };
+
+  const handleIssueCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error("Por favor, selecione uma imagem!");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("A imagem deve ter no máximo 5MB!");
+        return;
+      }
+      setIssueCoverFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setIssueCoverPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadIssueCover = async () => {
+    if (!issueCoverFile || !selectedIssue || !selectedCollection) {
+      toast.error("Selecione uma imagem primeiro!");
+      return;
+    }
+
+    setUploadingIssueCover(true);
+    try {
+      const uploadedUrl = await uploadCoverImage(issueCoverFile);
+      if (!uploadedUrl) {
+        throw new Error("Erro ao fazer upload da imagem");
+      }
+
+      const { error } = await supabase
+        .from('issues')
+        .update({ cover_url: uploadedUrl })
+        .eq('id', selectedIssue.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setCollections(collections.map(collection => {
+        if (collection.id === selectedCollection.id) {
+          return {
+            ...collection,
+            issues: sortIssuesAlphanumeric(
+              collection.issues.map(issue =>
+                issue.id === selectedIssue.id ? { ...issue, cover_url: uploadedUrl } : issue
+              )
+            ),
+          };
+        }
+        return collection;
+      }));
+
+      setSelectedIssue({ ...selectedIssue, cover_url: uploadedUrl });
+      setIssueCoverFile(null);
+      setIssueCoverPreview("");
+      toast.success("Capa atualizada com sucesso!");
+    } catch (error) {
+      console.error('Error uploading issue cover:', error);
+      toast.error("Erro ao fazer upload da capa");
+    } finally {
+      setUploadingIssueCover(false);
+    }
   };
 
   const navigateIssue = (direction: 'prev' | 'next') => {
@@ -1051,9 +1123,50 @@ const Colecao = () => {
                         alt={`Edição ${selectedIssue.issue_number}`}
                         className="w-full h-auto rounded-lg shadow-comic"
                       />
+                    ) : issueCoverPreview ? (
+                      <div className="relative">
+                        <img
+                          src={issueCoverPreview}
+                          alt="Preview"
+                          className="w-full h-auto rounded-lg shadow-comic"
+                        />
+                        <div className="absolute top-2 right-2 flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={uploadIssueCover}
+                            disabled={uploadingIssueCover}
+                            className="shadow-lg"
+                          >
+                            {uploadingIssueCover ? "Salvando..." : "Salvar Capa"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setIssueCoverFile(null);
+                              setIssueCoverPreview("");
+                            }}
+                            className="shadow-lg"
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
                     ) : (
-                      <div className={`w-full aspect-[2/3] ${selectedIssue?.cover_color} rounded-lg shadow-comic flex items-center justify-center`}>
+                      <div className={`w-full aspect-[2/3] ${selectedIssue?.cover_color} rounded-lg shadow-comic flex flex-col items-center justify-center p-4 gap-4`}>
                         <span className="text-white font-black text-4xl sm:text-6xl">{selectedIssue?.issue_number}</span>
+                        <label className="cursor-pointer">
+                          <div className="flex flex-col items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors px-6 py-3 rounded-lg">
+                            <Upload className="h-8 w-8 text-white" />
+                            <span className="text-white font-bold text-sm">Enviar Capa</span>
+                          </div>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                            onChange={handleIssueCoverFileChange}
+                          />
+                        </label>
                       </div>
                     )}
                   </CarouselItem>
