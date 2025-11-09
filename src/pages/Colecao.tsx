@@ -1106,10 +1106,12 @@ const Colecao = () => {
       </main>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full p-4 sm:p-6">
+        <DialogContent className="max-w-5xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto w-[98vw] sm:w-[95vw] md:w-full p-3 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-lg sm:text-2xl font-black pr-8">
-              {selectedCollection?.title} - {selectedIssue?.issue_number}
+            <DialogTitle className="text-base sm:text-xl md:text-2xl font-black pr-8 leading-tight">
+              <span className="block sm:inline">{selectedCollection?.title}</span>
+              <span className="hidden sm:inline"> - </span>
+              <span className="block sm:inline text-primary">{selectedIssue?.issue_number}</span>
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 sm:space-y-6">
@@ -1152,13 +1154,13 @@ const Colecao = () => {
                           </Button>
                         </div>
                       </div>
-                    ) : (
-                      <div className={`w-full aspect-[2/3] ${selectedIssue?.cover_color} rounded-lg shadow-comic flex flex-col items-center justify-center p-4 gap-4`}>
-                        <span className="text-white font-black text-4xl sm:text-6xl">{selectedIssue?.issue_number}</span>
+                     ) : (
+                      <div className={`w-full aspect-[2/3] ${selectedIssue?.cover_color} rounded-lg shadow-comic flex flex-col items-center justify-center p-3 sm:p-4 gap-3 sm:gap-4`}>
+                        <span className="text-white font-black text-3xl sm:text-4xl md:text-6xl text-center px-2">{selectedIssue?.issue_number}</span>
                         <label className="cursor-pointer">
-                          <div className="flex flex-col items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors px-6 py-3 rounded-lg">
-                            <Upload className="h-8 w-8 text-white" />
-                            <span className="text-white font-bold text-sm">Enviar Capa</span>
+                          <div className="flex flex-col items-center gap-1.5 sm:gap-2 bg-white/20 hover:bg-white/30 transition-colors px-4 sm:px-6 py-2 sm:py-3 rounded-lg">
+                            <Upload className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+                            <span className="text-white font-bold text-xs sm:text-sm">Enviar Capa</span>
                           </div>
                           <input
                             type="file"
@@ -1183,26 +1185,26 @@ const Colecao = () => {
                 />
               </Carousel>
               
-              <div className="flex sm:hidden justify-center gap-3 mt-4">
+              <div className="flex sm:hidden justify-center gap-2 mt-4">
                 <Button
-                  size="lg"
+                  size="default"
                   variant="outline"
                   onClick={() => navigateIssue('prev')}
                   disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === 0}
-                  className="flex-1 max-w-[120px]"
+                  className="flex-1 max-w-[140px]"
                 >
-                  <ChevronLeft className="h-5 w-5 mr-1" />
-                  Anterior
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  <span className="text-sm">Anterior</span>
                 </Button>
                 <Button
-                  size="lg"
+                  size="default"
                   variant="outline"
                   onClick={() => navigateIssue('next')}
                   disabled={!selectedCollection || !selectedIssue || selectedCollection.issues.findIndex(i => i.id === selectedIssue.id) === selectedCollection.issues.length - 1}
-                  className="flex-1 max-w-[120px]"
+                  className="flex-1 max-w-[140px]"
                 >
-                  Próxima
-                  <ChevronRight className="h-5 w-5 ml-1" />
+                  <span className="text-sm">Próxima</span>
+                  <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
             </div>
@@ -1271,18 +1273,18 @@ const Colecao = () => {
       </Dialog>
 
       <AlertDialog open={collectionToDelete !== null} onOpenChange={(open) => !open && setCollectionToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[95vw] max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base sm:text-lg">Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
               Tem certeza que deseja excluir esta coleção? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => collectionToDelete && deleteCollection(collectionToDelete)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
             </AlertDialogAction>
