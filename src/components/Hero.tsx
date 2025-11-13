@@ -1,16 +1,32 @@
 import { Button } from "@/components/ui/button";
 import { BookOpen, Library } from "lucide-react";
 import { Link } from "react-router-dom";
-import heroImage from "@/assets/hero-comics.jpg";
 
 const Hero = () => {
   return (
-    <section className="relative min-h-[85vh] sm:min-h-[90vh] flex items-center justify-center overflow-hidden">
-      <div 
-        className="absolute inset-0 bg-cover bg-center opacity-20"
-        style={{ backgroundImage: `url(${heroImage})` }}
-      />
-      <div className="absolute inset-0 bg-gradient-hero opacity-60" />
+    <section className="relative min-h-[85vh] sm:min-h-[90vh] flex items-center justify-center overflow-hidden bg-gradient-to-b from-[#0a0e27] via-[#1a1a3e] to-[#2d1b4e]">
+      {/* Cosmic background layers */}
+      <div className="absolute inset-0 cosmic-stars opacity-70" />
+      <div className="absolute inset-0 cosmic-nebula" />
+      
+      {/* Animated cosmic particles */}
+      <div className="absolute inset-0">
+        {[...Array(30)].map((_, i) => (
+          <div
+            key={i}
+            className="cosmic-particle"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 3}s`,
+              animationDuration: `${2 + Math.random() * 3}s`,
+            }}
+          />
+        ))}
+      </div>
+      
+      {/* Gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/40" />
       
       <div className="container relative z-10 px-4 sm:px-6 py-12 sm:py-20 mx-auto text-center">
         <div className="animate-slide-in">

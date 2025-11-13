@@ -118,3 +118,68 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Cosmic DC Comics inspired backgrounds */
+.cosmic-stars {
+  background-image: 
+    radial-gradient(2px 2px at 20% 30%, white, transparent),
+    radial-gradient(2px 2px at 60% 70%, white, transparent),
+    radial-gradient(1px 1px at 50% 50%, white, transparent),
+    radial-gradient(1px 1px at 80% 10%, white, transparent),
+    radial-gradient(2px 2px at 90% 60%, #a78bfa, transparent),
+    radial-gradient(1px 1px at 33% 80%, #60a5fa, transparent),
+    radial-gradient(1px 1px at 15% 90%, white, transparent);
+  background-size: 200% 200%, 200% 200%, 150% 150%, 300% 300%, 250% 250%, 280% 280%, 180% 180%;
+  background-position: 0% 0%;
+  animation: cosmic-drift 120s linear infinite;
+}
+
+.cosmic-nebula {
+  background: 
+    radial-gradient(ellipse at 30% 50%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 30%, rgba(217, 70, 239, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(234, 179, 8, 0.08) 0%, transparent 50%);
+  animation: cosmic-pulse 15s ease-in-out infinite;
+}
+
+.cosmic-particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: cosmic-twinkle 3s ease-in-out infinite;
+  filter: blur(0.5px);
+}
+
+@keyframes cosmic-drift {
+  0% {
+    background-position: 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%;
+  }
+  100% {
+    background-position: 100% 100%, -100% 100%, 50% 50%, 150% 150%, 125% 125%, 140% 140%, 90% 90%;
+  }
+}
+
+@keyframes cosmic-pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes cosmic-twinkle {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.5);
+  }
+}
