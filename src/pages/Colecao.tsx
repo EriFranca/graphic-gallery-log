@@ -714,8 +714,29 @@ const Colecao = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
+    <div className="min-h-screen relative bg-gradient-to-b from-[#0a0e27] via-[#1a1a3e] to-[#2d1b4e]">
+      {/* Cosmic background layers */}
+      <div className="fixed inset-0 cosmic-stars opacity-70 pointer-events-none" />
+      <div className="fixed inset-0 cosmic-nebula pointer-events-none" />
+      
+      {/* Animated cosmic particles */}
+      <div className="fixed inset-0 pointer-events-none">
+        {[...Array(30)].map((_, i) => (
+          <div
+            key={i}
+            className="cosmic-particle"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 3}s`,
+              animationDuration: `${2 + Math.random() * 3}s`,
+            }}
+          />
+        ))}
+      </div>
+      
+      <div className="relative z-10">
+        <Navigation />
       
       <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-12">
         <div className="text-center mb-8 sm:mb-12 animate-slide-in">
@@ -1120,6 +1141,7 @@ const Colecao = () => {
           </div>
         </div>
       </main>
+      </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-5xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto w-[98vw] sm:w-[95vw] md:w-full p-3 sm:p-6">
