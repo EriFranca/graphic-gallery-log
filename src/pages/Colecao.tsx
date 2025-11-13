@@ -96,6 +96,22 @@ const generateCoverColor = () => {
   return colors[Math.floor(Math.random() * colors.length)];
 };
 
+const getConditionGoldenEffect = (rating?: number, isOwned?: boolean) => {
+  if (!rating || !isOwned) return "";
+  
+  // Rating de 1-10, quanto maior mais intenso o efeito dourado
+  if (rating >= 9) {
+    return "shadow-[0_0_30px_rgba(234,179,8,0.8),0_0_15px_rgba(234,179,8,0.6)] ring-4 ring-yellow-500/60";
+  } else if (rating >= 7) {
+    return "shadow-[0_0_20px_rgba(234,179,8,0.6),0_0_10px_rgba(234,179,8,0.4)] ring-2 ring-yellow-500/40";
+  } else if (rating >= 5) {
+    return "shadow-[0_0_12px_rgba(234,179,8,0.4)] ring-1 ring-yellow-500/30";
+  } else if (rating >= 3) {
+    return "shadow-[0_0_8px_rgba(234,179,8,0.2)]";
+  }
+  return "";
+};
+
 const Colecao = () => {
   const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
@@ -1062,7 +1078,7 @@ const Colecao = () => {
                               >
                                 <div className={`aspect-[2/3] rounded-lg shadow-md overflow-hidden border-2 ${
                                   issue.is_owned ? 'border-primary' : 'border-muted'
-                                } transition-all duration-300 group-hover:shadow-comic-hover group-hover:-translate-y-1`}>
+                                } ${getConditionGoldenEffect(issue.condition_rating, issue.is_owned)} transition-all duration-300 group-hover:shadow-comic-hover group-hover:-translate-y-1`}>
                                   {issue.cover_url ? (
                                     <img
                                       src={issue.cover_url}
@@ -1123,14 +1139,14 @@ const Colecao = () => {
                       <img
                         src={selectedIssue.cover_url}
                         alt={`Edição ${selectedIssue.issue_number}`}
-                        className="w-full h-auto rounded-lg shadow-comic"
+                        className={`w-full h-auto rounded-lg shadow-comic ${getConditionGoldenEffect(selectedIssue.condition_rating, selectedIssue.is_owned)}`}
                       />
                     ) : issueCoverPreview ? (
                       <div className="relative">
                         <img
                           src={issueCoverPreview}
                           alt="Preview"
-                          className="w-full h-auto rounded-lg shadow-comic"
+                          className={`w-full h-auto rounded-lg shadow-comic ${getConditionGoldenEffect(selectedIssue?.condition_rating, selectedIssue?.is_owned)}`}
                         />
                         <div className="absolute top-2 right-2 flex gap-2">
                           <Button
