@@ -407,7 +407,7 @@ const Colecao = () => {
     }
   };
 
-  const searchComicVine = async () => {
+  const searchComics = async () => {
     if (!scrapingQuery.trim()) {
       toast.error("Digite um título para buscar!");
       return;
@@ -415,9 +415,12 @@ const Colecao = () => {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('search-comic-vine', {
-        body: { searchQuery: scrapingQuery }
-      });
+      const functionName = searchSource === 'comic_vine' ? 'search-comic-vine' : 'search-gcd';
+      const body = searchSource === 'comic_vine' 
+        ? { searchQuery: scrapingQuery } 
+        : { searchQuery: scrapingQuery };
+
+      const { data, error } = await supabase.functions.invoke(functionName, { body });
 
       if (error) throw error;
 
@@ -430,7 +433,8 @@ const Colecao = () => {
       }
     } catch (error) {
       console.error('Erro ao buscar:', error);
-      toast.error("Erro ao buscar no Comic Vine");
+      const sourceName = searchSource === 'comic_vine' ? 'Comic Vine' : 'GCD';
+      toast.error(`Erro ao buscar no ${sourceName}`);
       setSearchResults([]);
     } finally {
       setIsLoading(false);
