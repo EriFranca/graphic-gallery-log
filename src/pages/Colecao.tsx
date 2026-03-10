@@ -415,10 +415,8 @@ const Colecao = () => {
 
     setIsLoading(true);
     try {
-      const functionName = searchSource === 'comic_vine' ? 'search-comic-vine' : 'search-gcd';
-      const body = searchSource === 'comic_vine' 
-        ? { searchQuery: scrapingQuery } 
-        : { searchQuery: scrapingQuery };
+      const functionName = searchSource === 'comic_vine' ? 'search-comic-vine' : searchSource === 'metron' ? 'search-metron' : 'search-gcd';
+      const body = { searchQuery: scrapingQuery };
 
       const { data, error } = await supabase.functions.invoke(functionName, { body });
 
