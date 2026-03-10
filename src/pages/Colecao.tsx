@@ -431,7 +431,7 @@ const Colecao = () => {
       }
     } catch (error) {
       console.error('Erro ao buscar:', error);
-      const sourceName = searchSource === 'comic_vine' ? 'Comic Vine' : 'GCD';
+      const sourceName = searchSource === 'comic_vine' ? 'Comic Vine' : searchSource === 'metron' ? 'Metron' : 'GCD';
       toast.error(`Erro ao buscar no ${sourceName}`);
       setSearchResults([]);
     } finally {
