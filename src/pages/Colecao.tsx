@@ -135,7 +135,7 @@ const Colecao = () => {
   const [issueCoverFile, setIssueCoverFile] = useState<File | null>(null);
   const [issueCoverPreview, setIssueCoverPreview] = useState<string>("");
   const [uploadingIssueCover, setUploadingIssueCover] = useState(false);
-  const [searchSource, setSearchSource] = useState<'comic_vine' | 'gcd'>('comic_vine');
+  const [searchSource, setSearchSource] = useState<'comic_vine' | 'gcd' | 'metron'>('comic_vine');
 
   // Check authentication
   useEffect(() => {
@@ -415,10 +415,8 @@ const Colecao = () => {
 
     setIsLoading(true);
     try {
-      const functionName = searchSource === 'comic_vine' ? 'search-comic-vine' : 'search-gcd';
-      const body = searchSource === 'comic_vine' 
-        ? { searchQuery: scrapingQuery } 
-        : { searchQuery: scrapingQuery };
+      const functionName = searchSource === 'comic_vine' ? 'search-comic-vine' : searchSource === 'metron' ? 'search-metron' : 'search-gcd';
+      const body = { searchQuery: scrapingQuery };
 
       const { data, error } = await supabase.functions.invoke(functionName, { body });
 
@@ -433,7 +431,7 @@ const Colecao = () => {
       }
     } catch (error) {
       console.error('Erro ao buscar:', error);
-      const sourceName = searchSource === 'comic_vine' ? 'Comic Vine' : 'GCD';
+      const sourceName = searchSource === 'comic_vine' ? 'Comic Vine' : searchSource === 'metron' ? 'Metron' : 'GCD';
       toast.error(`Erro ao buscar no ${sourceName}`);
       setSearchResults([]);
     } finally {
@@ -467,9 +465,11 @@ const Colecao = () => {
       if (collectionError) throw collectionError;
 
       // Fetch issues with covers
-      const functionName = searchSource === 'comic_vine' ? 'search-comic-vine' : 'search-gcd';
+      const functionName = searchSource === 'comic_vine' ? 'search-comic-vine' : searchSource === 'metron' ? 'search-metron' : 'search-gcd';
       const body = searchSource === 'comic_vine' 
         ? { volumeApiUrl: result.apiUrl }
+        : searchSource === 'metron'
+        ? { seriesId: result.apiUrl }
         : { seriesUrl: result.apiUrl };
       const { data, error } = await supabase.functions.invoke(functionName, { body });
 
@@ -795,6 +795,14 @@ const Colecao = () => {
                   className="text-xs"
                 >
                   Grand Comics Database
+                </Button>
+                <Button
+                  variant={searchSource === 'metron' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setSearchSource('metron'); setSearchResults([]); }}
+                  className="text-xs"
+                >
+                  Metron
                 </Button>
               </div>
 
