@@ -135,6 +135,7 @@ const Colecao = () => {
   const [issueCoverFile, setIssueCoverFile] = useState<File | null>(null);
   const [issueCoverPreview, setIssueCoverPreview] = useState<string>("");
   const [uploadingIssueCover, setUploadingIssueCover] = useState(false);
+  const [searchSource, setSearchSource] = useState<'comic_vine' | 'gcd'>('comic_vine');
 
   // Check authentication
   useEffect(() => {
@@ -406,7 +407,7 @@ const Colecao = () => {
     }
   };
 
-  const searchComicVine = async () => {
+  const searchComics = async () => {
     if (!scrapingQuery.trim()) {
       toast.error("Digite um título para buscar!");
       return;
@@ -414,9 +415,12 @@ const Colecao = () => {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('search-comic-vine', {
-        body: { searchQuery: scrapingQuery }
-      });
+      const functionName = searchSource === 'comic_vine' ? 'search-comic-vine' : 'search-gcd';
+      const body = searchSource === 'comic_vine' 
+        ? { searchQuery: scrapingQuery } 
+        : { searchQuery: scrapingQuery };
+
+      const { data, error } = await supabase.functions.invoke(functionName, { body });
 
       if (error) throw error;
 
@@ -429,7 +433,8 @@ const Colecao = () => {
       }
     } catch (error) {
       console.error('Erro ao buscar:', error);
-      toast.error("Erro ao buscar no Comic Vine");
+      const sourceName = searchSource === 'comic_vine' ? 'Comic Vine' : 'GCD';
+      toast.error(`Erro ao buscar no ${sourceName}`);
       setSearchResults([]);
     } finally {
       setIsLoading(false);
@@ -462,9 +467,11 @@ const Colecao = () => {
       if (collectionError) throw collectionError;
 
       // Fetch issues with covers
-      const { data, error } = await supabase.functions.invoke('search-comic-vine', {
-        body: { volumeApiUrl: result.apiUrl }
-      });
+      const functionName = searchSource === 'comic_vine' ? 'search-comic-vine' : 'search-gcd';
+      const body = searchSource === 'comic_vine' 
+        ? { volumeApiUrl: result.apiUrl }
+        : { seriesUrl: result.apiUrl };
+      const { data, error } = await supabase.functions.invoke(functionName, { body });
 
       if (error) throw error;
 
@@ -767,20 +774,40 @@ const Colecao = () => {
             <CardHeader>
               <CardTitle className="text-xl font-black text-foreground flex items-center gap-2">
                 <Download className="h-5 w-5" />
-                Buscar no Comic Vine
+                Buscar Quadrinhos
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Source selector */}
+              <div className="flex gap-2">
+                <Button
+                  variant={searchSource === 'comic_vine' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setSearchSource('comic_vine'); setSearchResults([]); }}
+                  className="text-xs"
+                >
+                  Comic Vine
+                </Button>
+                <Button
+                  variant={searchSource === 'gcd' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setSearchSource('gcd'); setSearchResults([]); }}
+                  className="text-xs"
+                >
+                  Grand Comics Database
+                </Button>
+              </div>
+
               <div className="flex flex-col sm:flex-row gap-3">
                 <Input
                   placeholder="Digite o título da coleção..."
                   value={scrapingQuery}
                   onChange={(e) => setScrapingQuery(e.target.value)}
                   className="border-2 flex-1"
-                  onKeyDown={(e) => e.key === 'Enter' && searchComicVine()}
+                  onKeyDown={(e) => e.key === 'Enter' && searchComics()}
                 />
                 <Button 
-                  onClick={searchComicVine}
+                  onClick={searchComics}
                   disabled={isLoading}
                   className="shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5 w-full sm:w-auto"
                 >
