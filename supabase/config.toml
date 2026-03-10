@@ -2,3 +2,6 @@ project_id = "kmprskpchutesxhdhgqb"
 
 [functions.search-comic-vine]
 verify_jwt = false
+
+[functions.search-gcd]
+verify_jwt = false
