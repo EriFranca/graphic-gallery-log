@@ -774,20 +774,40 @@ const Colecao = () => {
             <CardHeader>
               <CardTitle className="text-xl font-black text-foreground flex items-center gap-2">
                 <Download className="h-5 w-5" />
-                Buscar no Comic Vine
+                Buscar Quadrinhos
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Source selector */}
+              <div className="flex gap-2">
+                <Button
+                  variant={searchSource === 'comic_vine' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setSearchSource('comic_vine'); setSearchResults([]); }}
+                  className="text-xs"
+                >
+                  Comic Vine
+                </Button>
+                <Button
+                  variant={searchSource === 'gcd' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setSearchSource('gcd'); setSearchResults([]); }}
+                  className="text-xs"
+                >
+                  Grand Comics Database
+                </Button>
+              </div>
+
               <div className="flex flex-col sm:flex-row gap-3">
                 <Input
                   placeholder="Digite o título da coleção..."
                   value={scrapingQuery}
                   onChange={(e) => setScrapingQuery(e.target.value)}
                   className="border-2 flex-1"
-                  onKeyDown={(e) => e.key === 'Enter' && searchComicVine()}
+                  onKeyDown={(e) => e.key === 'Enter' && searchComics()}
                 />
                 <Button 
-                  onClick={searchComicVine}
+                  onClick={searchComics}
                   disabled={isLoading}
                   className="shadow-comic hover:shadow-comic-hover transition-all duration-300 hover:-translate-y-0.5 w-full sm:w-auto"
                 >
