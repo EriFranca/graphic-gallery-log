@@ -796,6 +796,14 @@ const Colecao = () => {
                 >
                   Grand Comics Database
                 </Button>
+                <Button
+                  variant={searchSource === 'metron' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setSearchSource('metron'); setSearchResults([]); }}
+                  className="text-xs"
+                >
+                  Metron
+                </Button>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3">
