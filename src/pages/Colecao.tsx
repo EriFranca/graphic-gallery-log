@@ -467,9 +467,11 @@ const Colecao = () => {
       if (collectionError) throw collectionError;
 
       // Fetch issues with covers
-      const { data, error } = await supabase.functions.invoke('search-comic-vine', {
-        body: { volumeApiUrl: result.apiUrl }
-      });
+      const functionName = searchSource === 'comic_vine' ? 'search-comic-vine' : 'search-gcd';
+      const body = searchSource === 'comic_vine' 
+        ? { volumeApiUrl: result.apiUrl }
+        : { seriesUrl: result.apiUrl };
+      const { data, error } = await supabase.functions.invoke(functionName, { body });
 
       if (error) throw error;
 
