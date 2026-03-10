@@ -135,6 +135,7 @@ const Colecao = () => {
   const [issueCoverFile, setIssueCoverFile] = useState<File | null>(null);
   const [issueCoverPreview, setIssueCoverPreview] = useState<string>("");
   const [uploadingIssueCover, setUploadingIssueCover] = useState(false);
+  const [searchSource, setSearchSource] = useState<'comic_vine' | 'gcd'>('comic_vine');
 
   // Check authentication
   useEffect(() => {
